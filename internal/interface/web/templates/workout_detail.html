@@ -1,0 +1,147 @@
+{{define "workout_detail.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <a href="/workouts" class="btn btn-ghost btn-sm">&larr; Back</a>
+            <h1 class="text-3xl font-bold mt-2">{{.Workout.Name}}</h1>
+            <span class="badge badge-secondary">{{.Workout.Type}}</span>
+        </div>
+        <div class="flex gap-2">
+            <label for="edit-workout-modal" class="btn btn-outline btn-sm">Edit</label>
+            <button class="btn btn-error btn-sm"
+                hx-delete="/workouts/{{.Workout.Id}}"
+                hx-confirm="Delete this workout and all its results?">Delete</button>
+        </div>
+    </div>
+
+    {{if .Workout.Description}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Prescription</h2>
+            <pre class="whitespace-pre-wrap text-sm">{{.Workout.Description}}</pre>
+            <div class="flex gap-4 mt-2 text-sm text-base-content/70">
+                {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}}s</span>{{end}}
+                {{if .Workout.Rounds}}<span>Rounds: {{derefInt .Workout.Rounds}}</span>{{end}}
+                {{if .Workout.IntervalSeconds}}<span>Interval: {{derefInt .Workout.IntervalSeconds}}s</span>{{end}}
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Log Result</h2>
+            <form method="POST" action="/workouts/{{.Workout.Id}}/results" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Score</span></label>
+                        <input type="text" name="score" class="input input-bordered input-sm"
+                            placeholder="e.g. 150 reps, 8:30, 5+12" required />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Score Type</span></label>
+                        <select name="score_type" class="select select-bordered select-sm">
+                            {{range .ScoreTypes}}
+                            <option value="{{.}}">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" name="rx" class="checkbox checkbox-sm" />
+                        <span class="label-text">Rx (as prescribed)</span>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <input type="text" name="notes" class="input input-bordered input-sm" />
+                </div>
+                <button type="submit" class="btn btn-secondary btn-sm">Log Result</button>
+            </form>
+        </div>
+    </div>
+
+    {{if .Results}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Result History</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Score</th>
+                            <th>Type</th>
+                            <th>Rx</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Results}}
+                        <tr>
+                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                            <td class="font-bold">{{.Score}}</td>
+                            <td>{{.ScoreType}}</td>
+                            <td>{{if .Rx}}<span class="badge badge-success badge-sm">Rx</span>{{end}}</td>
+                            <td>{{.Notes}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<input type="checkbox" id="edit-workout-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Edit Workout</h3>
+        <form method="POST" action="/workouts/{{.Workout.Id}}" class="space-y-4 mt-4">
+            <input type="hidden" name="_method" value="PUT" />
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" value="{{.Workout.Name}}" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Type</span></label>
+                <select name="type" class="select select-bordered">
+                    {{range $.WorkoutTypes}}
+                    <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Description</span></label>
+                <textarea name="description" class="textarea textarea-bordered" rows="4">{{.Workout.Description}}</textarea>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Time Cap</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm"
+                        {{if .Workout.TimeCap}}value="{{derefInt .Workout.TimeCap}}"{{end}} />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Rounds</span></label>
+                    <input type="number" name="rounds" class="input input-bordered input-sm"
+                        {{if .Workout.Rounds}}value="{{derefInt .Workout.Rounds}}"{{end}} />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Interval</span></label>
+                    <input type="number" name="interval_seconds" class="input input-bordered input-sm"
+                        {{if .Workout.IntervalSeconds}}value="{{derefInt .Workout.IntervalSeconds}}"{{end}} />
+                </div>
+            </div>
+            <div class="modal-action">
+                <label for="edit-workout-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-secondary">Save</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="edit-workout-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}

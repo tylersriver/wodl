@@ -1,0 +1,63 @@
+{{define "lifts.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold">Lifts</h1>
+        <label for="create-lift-modal" class="btn btn-primary">Add Lift</label>
+    </div>
+
+    {{if .Lifts}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range .Lifts}}
+        <a href="/lifts/{{.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <h2 class="card-title">{{.Name}}</h2>
+                <span class="badge badge-outline">{{.Category}}</span>
+                {{if .OneRepMax}}
+                <div class="stat p-0 mt-2">
+                    <div class="stat-title">1RM</div>
+                    <div class="stat-value text-primary text-2xl">{{printf "%.0f" (deref .OneRepMax)}}</div>
+                </div>
+                {{end}}
+            </div>
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="text-center py-12">
+        <p class="text-lg text-base-content/50">No lifts yet. Add your first lift to get started.</p>
+    </div>
+    {{end}}
+</div>
+
+<input type="checkbox" id="create-lift-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Add New Lift</h3>
+        <form method="POST" action="/lifts" class="space-y-4 mt-4">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Back Squat" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Category</span></label>
+                <select name="category" class="select select-bordered">
+                    {{range .Categories}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Known 1RM (optional)</span></label>
+                <input type="number" name="one_rep_max" class="input input-bordered" step="0.5" min="0" />
+            </div>
+            <div class="modal-action">
+                <label for="create-lift-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="create-lift-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}

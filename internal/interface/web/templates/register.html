@@ -1,0 +1,43 @@
+{{define "register.html"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WODL - Register</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-base-200 flex items-center justify-center">
+    <div class="card w-96 bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title text-2xl font-bold justify-center">WODL</h2>
+            <p class="text-center text-base-content/70">Create your account</p>
+            {{if .Error}}
+            <div class="alert alert-error mt-2">
+                <span>{{.Error}}</span>
+            </div>
+            {{end}}
+            <form method="POST" action="/register" class="space-y-4 mt-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Display Name</span></label>
+                    <input type="text" name="display_name" class="input input-bordered" required />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Email</span></label>
+                    <input type="email" name="email" class="input input-bordered" required />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Password (min 8 characters)</span></label>
+                    <input type="password" name="password" class="input input-bordered" minlength="8" required />
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Register</button>
+            </form>
+            <p class="text-center mt-4">
+                Already have an account? <a href="/login" class="link link-primary">Login</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+{{end}}

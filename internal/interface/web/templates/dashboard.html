@@ -1,0 +1,119 @@
+{{define "dashboard.html"}}
+{{template "head" .}}
+<div class="space-y-8">
+    <h1 class="text-3xl font-bold">Dashboard</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title">Lifts</h2>
+                {{if .Lifts}}
+                <ul class="space-y-2">
+                    {{range .Lifts}}
+                    <li>
+                        <a href="/lifts/{{.Id}}" class="link link-hover">
+                            {{.Name}}
+                            {{if .OneRepMax}}
+                            <span class="badge badge-sm badge-primary">1RM: {{printf "%.0f" (deref .OneRepMax)}}</span>
+                            {{end}}
+                        </a>
+                    </li>
+                    {{end}}
+                </ul>
+                {{else}}
+                <p class="text-base-content/50">No lifts yet</p>
+                {{end}}
+                <div class="card-actions justify-end mt-4">
+                    <a href="/lifts" class="btn btn-primary btn-sm">View All</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title">Workouts</h2>
+                {{if .Workouts}}
+                <ul class="space-y-2">
+                    {{range .Workouts}}
+                    <li>
+                        <a href="/workouts/{{.Id}}" class="link link-hover">
+                            {{.Name}}
+                            <span class="badge badge-sm badge-secondary">{{.Type}}</span>
+                        </a>
+                    </li>
+                    {{end}}
+                </ul>
+                {{else}}
+                <p class="text-base-content/50">No workouts yet</p>
+                {{end}}
+                <div class="card-actions justify-end mt-4">
+                    <a href="/workouts" class="btn btn-secondary btn-sm">View All</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{if .RecentLogs}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Recent Lift Logs</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Weight</th>
+                            <th>Reps</th>
+                            <th>Sets</th>
+                            <th>Est 1RM</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .RecentLogs}}
+                        <tr>
+                            <td>{{printf "%.1f" .Weight}}</td>
+                            <td>{{.Reps}}</td>
+                            <td>{{.Sets}}</td>
+                            <td>{{printf "%.1f" .Estimated1RM}}</td>
+                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    {{if .RecentResults}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Recent Workout Results</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Score</th>
+                            <th>Type</th>
+                            <th>Rx</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .RecentResults}}
+                        <tr>
+                            <td>{{.Score}}</td>
+                            <td>{{.ScoreType}}</td>
+                            <td>{{if .Rx}}<span class="badge badge-success badge-sm">Rx</span>{{end}}</td>
+                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{template "tail" .}}
+{{end}}

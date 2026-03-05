@@ -1,0 +1,75 @@
+{{define "workouts.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold">Workouts</h1>
+        <label for="create-workout-modal" class="btn btn-secondary">Add Workout</label>
+    </div>
+
+    {{if .Workouts}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range .Workouts}}
+        <a href="/workouts/{{.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <h2 class="card-title">{{.Name}}</h2>
+                <span class="badge badge-secondary">{{.Type}}</span>
+                {{if .Description}}
+                <p class="text-sm text-base-content/70 mt-2 line-clamp-2">{{.Description}}</p>
+                {{end}}
+            </div>
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="text-center py-12">
+        <p class="text-lg text-base-content/50">No workouts yet. Add your first workout to get started.</p>
+    </div>
+    {{end}}
+</div>
+
+<input type="checkbox" id="create-workout-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Add New Workout</h3>
+        <form method="POST" action="/workouts" class="space-y-4 mt-4">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Fran" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Type</span></label>
+                <select name="type" class="select select-bordered">
+                    {{range .WorkoutTypes}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Description</span></label>
+                <textarea name="description" class="textarea textarea-bordered" rows="4"
+                    placeholder="21-15-9&#10;Thrusters (95/65)&#10;Pull-ups"></textarea>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Time Cap (sec)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Rounds</span></label>
+                    <input type="number" name="rounds" class="input input-bordered input-sm" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Interval (sec)</span></label>
+                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" />
+                </div>
+            </div>
+            <div class="modal-action">
+                <label for="create-workout-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-secondary">Create</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="create-workout-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}

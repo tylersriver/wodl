@@ -1,0 +1,157 @@
+{{define "lift_detail.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <a href="/lifts" class="btn btn-ghost btn-sm">&larr; Back</a>
+            <h1 class="text-3xl font-bold mt-2">{{.Lift.Name}}</h1>
+            <span class="badge badge-outline">{{.Lift.Category}}</span>
+        </div>
+        <div class="flex gap-2">
+            <label for="edit-lift-modal" class="btn btn-outline btn-sm">Edit</label>
+            <button class="btn btn-error btn-sm"
+                hx-delete="/lifts/{{.Lift.Id}}"
+                hx-confirm="Delete this lift and all its logs?">Delete</button>
+        </div>
+    </div>
+
+    {{if .Lift.OneRepMax}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">1RM: {{printf "%.0f" (deref .Lift.OneRepMax)}}</h2>
+            <h3 class="font-semibold mt-2">Percentage Table</h3>
+            <div class="overflow-x-auto">
+                <table class="table table-sm table-zebra">
+                    <thead>
+                        <tr><th>%</th><th>Weight</th></tr>
+                    </thead>
+                    <tbody>
+                        {{range .PctKeys}}
+                        <tr>
+                            <td>{{.}}%</td>
+                            <td>{{printf "%.1f" (index $.PercentageTable .)}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Log a Set</h2>
+            <form method="POST" action="/lifts/{{.Lift.Id}}/logs" class="space-y-3">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Weight</span></label>
+                        <input type="number" name="weight" class="input input-bordered input-sm" step="0.5" required
+                            hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
+                            hx-include="[name='reps']" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Reps</span></label>
+                        <input type="number" name="reps" class="input input-bordered input-sm" min="1" required
+                            hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
+                            hx-include="[name='weight']" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Sets</span></label>
+                        <input type="number" name="sets" class="input input-bordered input-sm" min="1" value="1" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">RPE</span></label>
+                        <input type="number" name="rpe" class="input input-bordered input-sm" min="1" max="10" step="0.5" />
+                    </div>
+                </div>
+                <div class="text-sm text-base-content/70">
+                    Estimated 1RM: <span id="est-1rm" class="font-bold">--</span>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <input type="text" name="notes" class="input input-bordered input-sm" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Log Set</button>
+            </form>
+        </div>
+    </div>
+
+    {{if .Logs}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Log History</h2>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Weight</th>
+                            <th>Reps</th>
+                            <th>Sets</th>
+                            <th>RPE</th>
+                            <th>Est 1RM</th>
+                            <th>% of 1RM</th>
+                            <th>Notes</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Logs}}
+                        <tr>
+                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                            <td>{{printf "%.1f" .Weight}}</td>
+                            <td>{{.Reps}}</td>
+                            <td>{{.Sets}}</td>
+                            <td>{{if .RPE}}{{printf "%.1f" (deref .RPE)}}{{else}}-{{end}}</td>
+                            <td>{{printf "%.1f" .Estimated1RM}}</td>
+                            <td>{{if .PercentOf1RM}}{{printf "%.0f" (deref .PercentOf1RM)}}%{{else}}-{{end}}</td>
+                            <td>{{.Notes}}</td>
+                            <td>
+                                <button class="btn btn-ghost btn-xs text-error"
+                                    hx-delete="/lifts/{{$.Lift.Id}}/logs/{{.Id}}"
+                                    hx-confirm="Delete this log entry?">X</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<input type="checkbox" id="edit-lift-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Edit Lift</h3>
+        <form method="POST" action="/lifts/{{.Lift.Id}}" class="space-y-4 mt-4">
+            <input type="hidden" name="_method" value="PUT" />
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" value="{{.Lift.Name}}" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Category</span></label>
+                <select name="category" class="select select-bordered">
+                    {{range $.Categories}}
+                    <option value="{{.}}" {{if eq (printf "%s" .) $.Lift.Category}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">1RM</span></label>
+                <input type="number" name="one_rep_max" class="input input-bordered" step="0.5"
+                    {{if .Lift.OneRepMax}}value="{{printf "%.1f" (deref .Lift.OneRepMax)}}"{{end}} />
+            </div>
+            <div class="modal-action">
+                <label for="edit-lift-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="edit-lift-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}
