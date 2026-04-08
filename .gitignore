@@ -3,3 +3,4 @@ wodl.db
 *.db-shm
 *.db-wal
 go-ddd/
+.env
