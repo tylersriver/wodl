@@ -1,0 +1,71 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ios
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project Wodl.xcodeproj \
+            -scheme Wodl \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project Wodl.xcodeproj \
+            -scheme Wodl \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath build/Wodl.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO
+
+      - name: Create unsigned IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Wodl.xcarchive/Products/Applications/Wodl.app build/Payload/
+          cd build && zip -r Wodl-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wodl-unsigned-ipa
+          path: ios/build/Wodl-unsigned.ipa
+          retention-days: 90

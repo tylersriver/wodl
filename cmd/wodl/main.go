@@ -54,11 +54,13 @@ func main() {
 	liftLogRepo := sqlite.NewLiftLogRepository(db)
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
+	deviceTokenRepo := sqlite.NewDeviceTokenRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
+	deviceTokenService := services.NewDeviceTokenService(deviceTokenRepo, userRepo, jwtService)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -85,6 +87,7 @@ func main() {
 	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, tmpl)
+	biometricHandler := handlers.NewBiometricHandler(deviceTokenService)
 
 	// Router
 	r := chi.NewRouter()
@@ -97,6 +100,7 @@ func main() {
 	r.Post("/login", authHandler.Login)
 	r.Get("/register", authHandler.RegisterPage)
 	r.Post("/register", authHandler.Register)
+	r.Post("/api/biometric-login", biometricHandler.ExchangeToken)
 
 	// Health check
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +132,9 @@ func main() {
 
 		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
+
+		r.Post("/api/device-token", biometricHandler.RegisterDevice)
+		r.Delete("/api/device-token", biometricHandler.RevokeDeviceTokens)
 	})
 
 	log.Printf("Starting WODL on :%s", port)

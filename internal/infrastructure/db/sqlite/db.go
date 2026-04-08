@@ -75,6 +75,18 @@ CREATE INDEX IF NOT EXISTS idx_lift_logs_user_id ON lift_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workouts_user_id ON workouts(user_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_workout_id ON workout_results(workout_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_user_id ON workout_results(user_id);
+
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    token_hash TEXT UNIQUE NOT NULL,
+    device_name TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL,
+    last_used_at DATETIME NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user_id ON device_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_token_hash ON device_tokens(token_hash);
 `
 
 func NewDB(dataSourceName string) (*sql.DB, error) {
