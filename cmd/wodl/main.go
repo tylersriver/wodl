@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -31,6 +32,11 @@ func main() {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "wodl.db"
+	}
+
+	// Ensure DB directory exists (for volume mounts)
+	if dir := filepath.Dir(dbPath); dir != "." {
+		os.MkdirAll(dir, 0755)
 	}
 
 	// Infrastructure
@@ -91,6 +97,12 @@ func main() {
 	r.Post("/login", authHandler.Login)
 	r.Get("/register", authHandler.RegisterPage)
 	r.Post("/register", authHandler.Register)
+
+	// Health check
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
