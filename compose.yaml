@@ -1,0 +1,14 @@
+services:
+  wodl:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - JWT_SECRET=local-dev-secret
+      - DB_PATH=/data/wodl.db
+    volumes:
+      - wodl-data:/data
+
+volumes:
+  wodl-data:
