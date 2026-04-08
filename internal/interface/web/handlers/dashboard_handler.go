@@ -3,9 +3,12 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"strings"
 
+	"github.com/tyler/wodl/internal/application/common"
 	"github.com/tyler/wodl/internal/application/query"
 	"github.com/tyler/wodl/internal/application/services"
+	"github.com/tyler/wodl/internal/domain/entities"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
 )
 
@@ -38,6 +41,8 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"RecentResults": nil,
 		"Lifts":         nil,
 		"Workouts":      nil,
+		"Categories":    entities.ValidLiftCategories(),
+		"WorkoutTypes":  entities.ValidWorkoutTypes(),
 	}
 	if recentLogs != nil {
 		data["RecentLogs"] = recentLogs.Results
@@ -53,4 +58,39 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.templates.ExecuteTemplate(w, "dashboard.html", data)
+}
+
+func (h *DashboardHandler) Search(w http.ResponseWriter, r *http.Request) {
+	userId := middleware.GetUserID(r)
+	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+
+	if q == "" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var matchedLifts []*common.LiftResult
+	var matchedWorkouts []*common.WorkoutResult
+
+	if lifts, err := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId}); err == nil && lifts != nil {
+		for _, l := range lifts.Results {
+			if strings.Contains(strings.ToLower(l.Name), q) || strings.Contains(strings.ToLower(l.Category), q) {
+				matchedLifts = append(matchedLifts, l)
+			}
+		}
+	}
+
+	if workouts, err := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId}); err == nil && workouts != nil {
+		for _, w := range workouts.Results {
+			if strings.Contains(strings.ToLower(w.Name), q) || strings.Contains(strings.ToLower(w.Type), q) {
+				matchedWorkouts = append(matchedWorkouts, w)
+			}
+		}
+	}
+
+	data := map[string]interface{}{
+		"Lifts":    matchedLifts,
+		"Workouts": matchedWorkouts,
+	}
+	h.templates.ExecuteTemplate(w, "search_results.html", data)
 }

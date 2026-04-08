@@ -1,119 +1,97 @@
 {{define "dashboard.html"}}
 {{template "head" .}}
-<div class="space-y-8">
-    <h1 class="text-3xl font-bold">Dashboard</h1>
+<div class="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+    <div class="flex gap-3">
+        <label for="create-lift-modal" class="btn btn-primary btn-sm">+ Lift</label>
+        <label for="create-workout-modal" class="btn btn-secondary btn-sm">+ Workout</label>
+    </div>
+    <h1 class="text-4xl font-bold">WODL</h1>
+    <p class="text-base-content/60">Search your lifts and workouts</p>
+    <div class="w-full max-w-lg">
+        <input type="text" name="q" placeholder="Search lifts & workouts..."
+            class="input input-bordered input-lg w-full"
+            hx-get="/api/search"
+            hx-trigger="input changed delay:200ms, search"
+            hx-target="#search-results"
+            hx-params="*"
+            autocomplete="off" />
+    </div>
+    <div id="search-results" class="w-full max-w-lg"></div>
+</div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="card bg-base-100 shadow-lg">
-            <div class="card-body">
-                <h2 class="card-title">Lifts</h2>
-                {{if .Lifts}}
-                <ul class="space-y-2">
-                    {{range .Lifts}}
-                    <li>
-                        <a href="/lifts/{{.Id}}" class="link link-hover">
-                            {{.Name}}
-                            {{if .OneRepMax}}
-                            <span class="badge badge-sm badge-primary">1RM: {{printf "%.0f" (deref .OneRepMax)}}</span>
-                            {{end}}
-                        </a>
-                    </li>
+<input type="checkbox" id="create-lift-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Add New Lift</h3>
+        <form method="POST" action="/lifts" class="space-y-4 mt-4">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Back Squat" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Category</span></label>
+                <select name="category" class="select select-bordered">
+                    {{range .Categories}}
+                    <option value="{{.}}">{{.}}</option>
                     {{end}}
-                </ul>
-                {{else}}
-                <p class="text-base-content/50">No lifts yet</p>
-                {{end}}
-                <div class="card-actions justify-end mt-4">
-                    <a href="/lifts" class="btn btn-primary btn-sm">View All</a>
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Known 1RM (optional)</span></label>
+                <input type="number" name="one_rep_max" class="input input-bordered" step="0.5" min="0" />
+            </div>
+            <div class="modal-action">
+                <label for="create-lift-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="create-lift-modal"></label>
+</div>
+
+<input type="checkbox" id="create-workout-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg">Add New Workout</h3>
+        <form method="POST" action="/workouts" class="space-y-4 mt-4">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Fran" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Type</span></label>
+                <select name="type" class="select select-bordered">
+                    {{range .WorkoutTypes}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Description</span></label>
+                <textarea name="description" class="textarea textarea-bordered" rows="4"
+                    placeholder="21-15-9&#10;Thrusters (95/65)&#10;Pull-ups"></textarea>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Time Cap (sec)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Rounds</span></label>
+                    <input type="number" name="rounds" class="input input-bordered input-sm" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Interval (sec)</span></label>
+                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" />
                 </div>
             </div>
-        </div>
-
-        <div class="card bg-base-100 shadow-lg">
-            <div class="card-body">
-                <h2 class="card-title">Workouts</h2>
-                {{if .Workouts}}
-                <ul class="space-y-2">
-                    {{range .Workouts}}
-                    <li>
-                        <a href="/workouts/{{.Id}}" class="link link-hover">
-                            {{.Name}}
-                            <span class="badge badge-sm badge-secondary">{{.Type}}</span>
-                        </a>
-                    </li>
-                    {{end}}
-                </ul>
-                {{else}}
-                <p class="text-base-content/50">No workouts yet</p>
-                {{end}}
-                <div class="card-actions justify-end mt-4">
-                    <a href="/workouts" class="btn btn-secondary btn-sm">View All</a>
-                </div>
+            <div class="modal-action">
+                <label for="create-workout-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-secondary">Create</button>
             </div>
-        </div>
+        </form>
     </div>
-
-    {{if .RecentLogs}}
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">Recent Lift Logs</h2>
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Weight</th>
-                            <th>Reps</th>
-                            <th>Sets</th>
-                            <th>Est 1RM</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .RecentLogs}}
-                        <tr>
-                            <td>{{printf "%.1f" .Weight}}</td>
-                            <td>{{.Reps}}</td>
-                            <td>{{.Sets}}</td>
-                            <td>{{printf "%.1f" .Estimated1RM}}</td>
-                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {{end}}
-
-    {{if .RecentResults}}
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">Recent Workout Results</h2>
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Score</th>
-                            <th>Type</th>
-                            <th>Rx</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .RecentResults}}
-                        <tr>
-                            <td>{{.Score}}</td>
-                            <td>{{.ScoreType}}</td>
-                            <td>{{if .Rx}}<span class="badge badge-success badge-sm">Rx</span>{{end}}</td>
-                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {{end}}
+    <label class="modal-backdrop" for="create-workout-modal"></label>
 </div>
 {{template "tail" .}}
 {{end}}

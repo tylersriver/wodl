@@ -1,0 +1,31 @@
+{{define "search_results.html"}}
+{{if or .Lifts .Workouts}}
+<div class="space-y-2">
+    {{range .Lifts}}
+    <a href="/lifts/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
+        <div class="card-body p-4 flex-row items-center justify-between">
+            <div>
+                <span class="font-semibold">{{.Name}}</span>
+                <span class="badge badge-primary badge-sm ml-2">{{.Category}}</span>
+            </div>
+            {{if .OneRepMax}}
+            <span class="text-sm text-base-content/60">1RM: {{printf "%.0f" (deref .OneRepMax)}}</span>
+            {{end}}
+        </div>
+    </a>
+    {{end}}
+    {{range .Workouts}}
+    <a href="/workouts/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
+        <div class="card-body p-4 flex-row items-center justify-between">
+            <div>
+                <span class="font-semibold">{{.Name}}</span>
+                <span class="badge badge-secondary badge-sm ml-2">{{.Type}}</span>
+            </div>
+        </div>
+    </a>
+    {{end}}
+</div>
+{{else}}
+<p class="text-center text-base-content/50 py-4">No results found</p>
+{{end}}
+{{end}}
