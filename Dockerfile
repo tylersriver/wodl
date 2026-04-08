@@ -11,5 +11,4 @@ RUN apk add --no-cache ca-certificates
 COPY --from=build /bin/wodl /bin/wodl
 EXPOSE 8080
 ENV DB_PATH=/data/wodl.db
-VOLUME /data
 ENTRYPOINT ["/bin/wodl"]
