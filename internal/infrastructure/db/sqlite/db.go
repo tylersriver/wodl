@@ -155,8 +155,38 @@ func NewDB(dataSourceName string) (*sql.DB, error) {
 	if err := ensureColumns(db, "sessions", sessionColumns); err != nil {
 		return nil, fmt.Errorf("ensuring session columns: %w", err)
 	}
+	if err := runVersionedMigrations(db); err != nil {
+		return nil, fmt.Errorf("running versioned migrations: %w", err)
+	}
 
 	return db, nil
+}
+
+// runVersionedMigrations applies migrations gated by SQLite's PRAGMA user_version
+// so each runs exactly once per database.
+func runVersionedMigrations(db *sql.DB) error {
+	var version int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return fmt.Errorf("reading user_version: %w", err)
+	}
+
+	// v1: workouts.time_cap changed units from seconds to minutes.
+	if version < 1 {
+		if _, err := db.Exec(
+			`UPDATE workouts
+			 SET time_cap = CASE
+			     WHEN time_cap IS NULL OR time_cap <= 0 THEN time_cap
+			     ELSE MAX(1, (time_cap + 30) / 60)
+			 END`,
+		); err != nil {
+			return fmt.Errorf("migrating time_cap to minutes: %w", err)
+		}
+		if _, err := db.Exec(`PRAGMA user_version = 1`); err != nil {
+			return fmt.Errorf("bumping user_version to 1: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // ensureColumns runs ALTER TABLE ADD COLUMN for each column missing from the

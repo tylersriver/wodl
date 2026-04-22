@@ -35,11 +35,27 @@ func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
 
+	// Lifting workouts are excluded from the list by default since they're
+	// driven by their linked Lift's 1RM table rather than a standalone
+	// prescription; users can opt in with ?include_lifting=1.
+	includeLifting := r.URL.Query().Get("include_lifting") == "1"
+	visible := result.Results
+	if !includeLifting {
+		filtered := visible[:0:0]
+		for _, wr := range visible {
+			if wr.Type != string(entities.WorkoutTypeLifting) {
+				filtered = append(filtered, wr)
+			}
+		}
+		visible = filtered
+	}
+
 	data := map[string]interface{}{
-		"Workouts":     result.Results,
-		"WorkoutTypes": entities.ValidWorkoutTypes(),
-		"ScoreTypes":   entities.ValidScoreTypes(),
-		"Lifts":        nil,
+		"Workouts":       visible,
+		"WorkoutTypes":   entities.ValidWorkoutTypes(),
+		"ScoreTypes":     entities.ValidScoreTypes(),
+		"Lifts":          nil,
+		"IncludeLifting": includeLifting,
 	}
 	if lifts != nil {
 		data["Lifts"] = lifts.Results

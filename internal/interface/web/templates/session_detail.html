@@ -99,7 +99,7 @@
                             <span class="badge badge-secondary badge-sm">{{$w.Type}}</span>
                         </div>
                         <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
-                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}}s</span>{{end}}
+                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}} min</span>{{end}}
                             {{if $w.Rounds}}<span>Rounds: {{derefInt $w.Rounds}}</span>{{end}}
                             {{if $w.IntervalSeconds}}<span>Interval: {{derefInt $w.IntervalSeconds}}s</span>{{end}}
                         </div>

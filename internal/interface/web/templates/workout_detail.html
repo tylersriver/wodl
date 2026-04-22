@@ -23,7 +23,7 @@
             <pre class="whitespace-pre-wrap text-sm">{{.Workout.Description}}</pre>
             {{end}}
             <div class="flex flex-wrap gap-4 mt-2 text-sm text-base-content/70">
-                {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}}s</span>{{end}}
+                {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}} min</span>{{end}}
                 {{if .Workout.Rounds}}<span>Rounds: {{derefInt .Workout.Rounds}}</span>{{end}}
                 {{if .Workout.IntervalSeconds}}<span>Interval: {{derefInt .Workout.IntervalSeconds}}s</span>{{end}}
             </div>
@@ -126,8 +126,8 @@
             </div>
             <div class="grid grid-cols-3 gap-3">
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Time Cap</span></label>
-                    <input type="number" name="time_cap" class="input input-bordered input-sm"
+                    <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" min="0"
                         {{if .Workout.TimeCap}}value="{{derefInt .Workout.TimeCap}}"{{end}} />
                 </div>
                 <div class="form-control">

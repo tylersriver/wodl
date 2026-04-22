@@ -6,7 +6,8 @@
         <div class="flex items-center gap-2">
             <div role="tablist" class="tabs tabs-boxed">
                 <a role="tab" href="/sessions?view=list" class="tab {{if eq .View "list"}}tab-active{{end}}">List</a>
-                <a role="tab" href="/sessions?view=calendar" class="tab {{if eq .View "calendar"}}tab-active{{end}}">Calendar</a>
+                <a role="tab" href="/sessions?view=week" class="tab {{if eq .View "week"}}tab-active{{end}}">Week</a>
+                <a role="tab" href="/sessions?view=calendar" class="tab {{if eq .View "calendar"}}tab-active{{end}}">Month</a>
             </div>
             <label for="create-session-modal" class="btn btn-accent btn-sm">Add</label>
         </div>
@@ -14,6 +15,8 @@
 
     {{if eq .View "calendar"}}
         {{template "sessions_calendar" .}}
+    {{else if eq .View "week"}}
+        {{template "sessions_week" .}}
     {{else}}
         {{template "sessions_list" .}}
     {{end}}
@@ -100,6 +103,42 @@
     <p class="text-lg text-base-content/50">No sessions yet. Group some workouts together into a session to get started.</p>
 </div>
 {{end}}
+{{end}}
+
+{{define "sessions_week"}}
+<div class="card bg-base-100 shadow-lg">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <a href="/sessions?view=week&week={{.Week.PrevParam}}" class="btn btn-ghost btn-sm">&larr;</a>
+            <div class="flex items-center gap-2">
+                <h2 class="text-xl font-bold text-center">{{.Week.Label}}</h2>
+                <a href="/sessions?view=week" class="btn btn-ghost btn-xs">This Week</a>
+            </div>
+            <a href="/sessions?view=week&week={{.Week.NextParam}}" class="btn btn-ghost btn-sm">&rarr;</a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-7 gap-2">
+            {{range .Week.Days}}
+            <div class="min-h-32 rounded border border-base-300 p-2 flex flex-col gap-2
+                {{if .IsToday}}ring-2 ring-accent{{end}}">
+                <div class="flex items-baseline justify-between">
+                    <span class="text-xs uppercase tracking-wide text-base-content/60">{{.Date.Format "Mon"}}</span>
+                    <span class="font-semibold text-lg">{{.Date.Day}}</span>
+                </div>
+                {{if .Logs}}
+                <div class="flex flex-col gap-1">
+                    {{range .Logs}}
+                    <a href="/sessions/{{.SessionId}}" class="badge badge-accent badge-sm truncate max-w-full justify-start">{{.SessionName}}</a>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="text-xs text-base-content/30">—</div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
 {{end}}
 
 {{define "sessions_calendar"}}

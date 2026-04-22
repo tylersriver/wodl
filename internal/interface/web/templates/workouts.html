@@ -1,9 +1,15 @@
 {{define "workouts.html"}}
 {{template "head" .}}
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center flex-wrap gap-3">
         <h1 class="text-3xl font-bold">Workouts</h1>
-        <label for="create-workout-modal" class="btn btn-secondary">Add Workout</label>
+        <div class="flex items-center gap-2">
+            <a href="/workouts{{if not .IncludeLifting}}?include_lifting=1{{end}}"
+               class="btn btn-sm {{if .IncludeLifting}}btn-primary{{else}}btn-outline{{end}}">
+                {{if .IncludeLifting}}Lifting: On{{else}}Include Lifting{{end}}
+            </a>
+            <label for="create-workout-modal" class="btn btn-secondary btn-sm">Add</label>
+        </div>
     </div>
 
     {{if .Workouts}}
@@ -51,8 +57,8 @@
             </div>
             <div class="grid grid-cols-3 gap-3">
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Time Cap (sec)</span></label>
-                    <input type="number" name="time_cap" class="input input-bordered input-sm" />
+                    <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" min="0" />
                 </div>
                 <div class="form-control">
                     <label class="label"><span class="label-text">Rounds</span></label>
@@ -60,7 +66,7 @@
                 </div>
                 <div class="form-control">
                     <label class="label"><span class="label-text">Interval (sec)</span></label>
-                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" />
+                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" min="0" />
                 </div>
             </div>
             <div id="create-lifting-fields" class="border-l-2 border-primary/40 pl-3 hidden">

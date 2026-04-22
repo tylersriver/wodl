@@ -41,7 +41,10 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
 	view := r.URL.Query().Get("view")
-	if view != "calendar" {
+	switch view {
+	case "calendar", "week":
+		// accepted
+	default:
 		view = "list"
 	}
 
@@ -63,7 +66,8 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		data["Workouts"] = workouts.Results
 	}
 
-	if view == "calendar" {
+	switch view {
+	case "calendar":
 		month, err := parseMonthParam(r.URL.Query().Get("month"))
 		if err != nil {
 			http.Error(w, "invalid month", http.StatusBadRequest)
@@ -75,6 +79,18 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data["Calendar"] = cal
+	case "week":
+		weekStart, err := parseWeekParam(r.URL.Query().Get("week"))
+		if err != nil {
+			http.Error(w, "invalid week", http.StatusBadRequest)
+			return
+		}
+		wk, err := h.buildWeek(userId, weekStart)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data["Week"] = wk
 	}
 
 	h.templates.ExecuteTemplate(w, "sessions.html", data)
@@ -326,6 +342,87 @@ func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart time.Time) (
 		NextParam:  monthStart.AddDate(0, 1, 0).Format(monthParamLayout),
 		CurrParam:  monthStart.Format(monthParamLayout),
 		Weeks:      weeks,
+	}, nil
+}
+
+// parseWeekParam returns the Sunday-start of the week containing the given
+// YYYY-MM-DD date (or today if empty).
+func parseWeekParam(v string) (time.Time, error) {
+	var anchor time.Time
+	if v == "" {
+		anchor = time.Now()
+	} else {
+		t, err := time.ParseInLocation(sessionDateLayout, v, time.Local)
+		if err != nil {
+			return time.Time{}, err
+		}
+		anchor = t
+	}
+	day := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.Local)
+	return day.AddDate(0, 0, -int(day.Weekday())), nil
+}
+
+// CalendarWeek holds data for rendering a single-week calendar view.
+type CalendarWeek struct {
+	Start     time.Time
+	End       time.Time
+	Label     string
+	PrevParam string
+	NextParam string
+	CurrParam string
+	Days      []CalendarDay
+}
+
+func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart time.Time) (*CalendarWeek, error) {
+	weekEnd := weekStart.AddDate(0, 0, 7)
+
+	logs, err := h.sessionService.GetSessionLogsInRange(&query.GetSessionLogsInRangeQuery{
+		UserId: userId,
+		Start:  weekStart,
+		End:    weekEnd,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	byDay := map[string][]*common.SessionLogResult{}
+	for _, l := range logs.Results {
+		key := l.PerformedAt.In(time.Local).Format(sessionDateLayout)
+		byDay[key] = append(byDay[key], l)
+	}
+
+	today := time.Now().Format(sessionDateLayout)
+	days := make([]CalendarDay, 7)
+	for i := 0; i < 7; i++ {
+		day := weekStart.AddDate(0, 0, i)
+		key := day.Format(sessionDateLayout)
+		days[i] = CalendarDay{
+			Date:    day,
+			InMonth: true,
+			IsToday: key == today,
+			Logs:    byDay[key],
+		}
+	}
+
+	lastDay := weekStart.AddDate(0, 0, 6)
+	var label string
+	if weekStart.Month() == lastDay.Month() {
+		label = fmt.Sprintf("%s %d – %d, %d",
+			weekStart.Month().String(), weekStart.Day(), lastDay.Day(), weekStart.Year())
+	} else {
+		label = fmt.Sprintf("%s %d – %s %d, %d",
+			weekStart.Month().String(), weekStart.Day(),
+			lastDay.Month().String(), lastDay.Day(), lastDay.Year())
+	}
+
+	return &CalendarWeek{
+		Start:     weekStart,
+		End:       lastDay,
+		Label:     label,
+		PrevParam: weekStart.AddDate(0, 0, -7).Format(sessionDateLayout),
+		NextParam: weekStart.AddDate(0, 0, 7).Format(sessionDateLayout),
+		CurrParam: weekStart.Format(sessionDateLayout),
+		Days:      days,
 	}, nil
 }
 
