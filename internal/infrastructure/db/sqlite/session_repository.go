@@ -25,9 +25,9 @@ func (r *SessionRepository) Create(s *entities.ValidatedSession) (*entities.Sess
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		`INSERT INTO sessions (id, user_id, name, warmup, total_time_minutes, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		s.Id.String(), s.UserId.String(), s.Name, s.Warmup, s.TotalTimeMinutes,
+		`INSERT INTO sessions (id, user_id, name, warmup, session_date, total_time_minutes, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.Id.String(), s.UserId.String(), s.Name, s.Warmup, s.Date, s.TotalTimeMinutes,
 		s.CreatedAt, s.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
@@ -47,7 +47,7 @@ func (r *SessionRepository) Create(s *entities.ValidatedSession) (*entities.Sess
 
 func (r *SessionRepository) FindById(id uuid.UUID) (*entities.Session, error) {
 	row := r.db.QueryRow(
-		`SELECT id, user_id, name, warmup, total_time_minutes, created_at, updated_at, deleted_at
+		`SELECT id, user_id, name, warmup, session_date, total_time_minutes, created_at, updated_at, deleted_at
 		 FROM sessions WHERE id = ? AND deleted_at IS NULL`, id.String(),
 	)
 	s, err := r.scanSession(row)
@@ -64,8 +64,9 @@ func (r *SessionRepository) FindById(id uuid.UUID) (*entities.Session, error) {
 
 func (r *SessionRepository) FindAllByUserId(userId uuid.UUID) ([]*entities.Session, error) {
 	rows, err := r.db.Query(
-		`SELECT id, user_id, name, warmup, total_time_minutes, created_at, updated_at, deleted_at
-		 FROM sessions WHERE user_id = ? AND deleted_at IS NULL ORDER BY name`, userId.String(),
+		`SELECT id, user_id, name, warmup, session_date, total_time_minutes, created_at, updated_at, deleted_at
+		 FROM sessions WHERE user_id = ? AND deleted_at IS NULL
+		 ORDER BY session_date DESC, name`, userId.String(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("querying sessions: %w", err)
@@ -102,9 +103,9 @@ func (r *SessionRepository) Update(s *entities.ValidatedSession) (*entities.Sess
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		`UPDATE sessions SET name = ?, warmup = ?, total_time_minutes = ?, updated_at = ?
+		`UPDATE sessions SET name = ?, warmup = ?, session_date = ?, total_time_minutes = ?, updated_at = ?
 		 WHERE id = ? AND deleted_at IS NULL`,
-		s.Name, s.Warmup, s.TotalTimeMinutes, s.UpdatedAt, s.Id.String(),
+		s.Name, s.Warmup, s.Date, s.TotalTimeMinutes, s.UpdatedAt, s.Id.String(),
 	); err != nil {
 		return nil, fmt.Errorf("updating session: %w", err)
 	}
@@ -176,7 +177,7 @@ func (r *SessionRepository) findWorkoutIds(sessionId uuid.UUID) ([]uuid.UUID, er
 func (r *SessionRepository) scanSession(row *sql.Row) (*entities.Session, error) {
 	var s entities.Session
 	var idStr, userIdStr string
-	err := row.Scan(&idStr, &userIdStr, &s.Name, &s.Warmup, &s.TotalTimeMinutes,
+	err := row.Scan(&idStr, &userIdStr, &s.Name, &s.Warmup, &s.Date, &s.TotalTimeMinutes,
 		&s.CreatedAt, &s.UpdatedAt, &s.DeletedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -192,7 +193,7 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*entities.Session, error)
 func (r *SessionRepository) scanSessionRow(rows *sql.Rows) (*entities.Session, error) {
 	var s entities.Session
 	var idStr, userIdStr string
-	err := rows.Scan(&idStr, &userIdStr, &s.Name, &s.Warmup, &s.TotalTimeMinutes,
+	err := rows.Scan(&idStr, &userIdStr, &s.Name, &s.Warmup, &s.Date, &s.TotalTimeMinutes,
 		&s.CreatedAt, &s.UpdatedAt, &s.DeletedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scanning session row: %w", err)

@@ -1,6 +1,8 @@
 package command
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/common"
 )
@@ -9,6 +11,7 @@ type CreateSessionCommand struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
+	Date             *time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 }
@@ -18,6 +21,7 @@ type UpdateSessionCommand struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
+	Date             *time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 }

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,6 +14,8 @@ import (
 	"github.com/tyler/wodl/internal/application/services"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
 )
+
+const sessionDateLayout = "2006-01-02"
 
 type SessionHandler struct {
 	sessionService *services.SessionService
@@ -44,6 +47,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Sessions": sessions.Results,
 		"Workouts": nil,
+		"Today":    time.Now().Format(sessionDateLayout),
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results
@@ -59,6 +63,7 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		UserId:     userId,
 		Name:       r.FormValue("name"),
 		Warmup:     r.FormValue("warmup"),
+		Date:       parseSessionDate(r.FormValue("date")),
 		WorkoutIds: parseWorkoutIds(r),
 	}
 	if v := r.FormValue("total_time_minutes"); v != "" {
@@ -98,9 +103,15 @@ func (h *SessionHandler) Detail(w http.ResponseWriter, r *http.Request) {
 
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
 
+	dateStr := ""
+	if result.Session != nil && result.Session.Date != nil {
+		dateStr = result.Session.Date.Format(sessionDateLayout)
+	}
+
 	data := map[string]interface{}{
 		"Session":  result.Session,
 		"Workouts": nil,
+		"DateStr":  dateStr,
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results
@@ -122,6 +133,7 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		UserId:     userId,
 		Name:       r.FormValue("name"),
 		Warmup:     r.FormValue("warmup"),
+		Date:       parseSessionDate(r.FormValue("date")),
 		WorkoutIds: parseWorkoutIds(r),
 	}
 	if v := r.FormValue("total_time_minutes"); v != "" {
@@ -157,6 +169,19 @@ func (h *SessionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+}
+
+// parseSessionDate parses a YYYY-MM-DD string from a form input; returns nil
+// when empty or malformed.
+func parseSessionDate(v string) *time.Time {
+	if v == "" {
+		return nil
+	}
+	t, err := time.Parse(sessionDateLayout, v)
+	if err != nil {
+		return nil
+	}
+	return &t
 }
 
 // parseWorkoutIds collects all workout_ids[] form values (in submission order)

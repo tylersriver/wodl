@@ -25,7 +25,7 @@ func (s *SessionService) CreateSession(cmd *command.CreateSessionCommand) (*comm
 		return nil, err
 	}
 
-	session := entities.NewSession(cmd.UserId, cmd.Name, cmd.Warmup, cmd.TotalTimeMinutes, cmd.WorkoutIds)
+	session := entities.NewSession(cmd.UserId, cmd.Name, cmd.Warmup, cmd.Date, cmd.TotalTimeMinutes, cmd.WorkoutIds)
 	validated, err := entities.NewValidatedSession(session)
 	if err != nil {
 		return nil, err
@@ -62,6 +62,7 @@ func (s *SessionService) UpdateSession(cmd *command.UpdateSessionCommand) error 
 
 	existing.UpdateName(cmd.Name)
 	existing.UpdateWarmup(cmd.Warmup)
+	existing.UpdateDate(cmd.Date)
 	existing.UpdateTotalTime(cmd.TotalTimeMinutes)
 	existing.UpdateWorkoutIds(cmd.WorkoutIds)
 

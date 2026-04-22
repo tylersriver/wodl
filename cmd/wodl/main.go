@@ -76,6 +76,7 @@ func main() {
 			}
 			return *i
 		},
+		"inc": func(i int) int { return i + 1 },
 	}
 
 	tmpl := template.Must(

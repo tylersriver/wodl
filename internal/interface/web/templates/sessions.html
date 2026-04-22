@@ -11,7 +11,12 @@
         {{range .Sessions}}
         <a href="/sessions/{{.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
             <div class="card-body">
-                <h2 class="card-title">{{.Name}}</h2>
+                <div class="flex items-start justify-between gap-2">
+                    <h2 class="card-title">{{.Name}}</h2>
+                    {{if .Date}}
+                    <span class="badge badge-outline">{{.Date.Format "Mon, Jan 2"}}</span>
+                    {{end}}
+                </div>
                 <div class="flex flex-wrap gap-2">
                     <span class="badge badge-accent">{{len .Workouts}} workouts</span>
                     {{if .TotalTimeMinutes}}
@@ -41,14 +46,20 @@
                 <label class="label"><span class="label-text">Name</span></label>
                 <input type="text" name="name" class="input input-bordered" placeholder="e.g. Monday Strength + Conditioning" required />
             </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm" value="{{.Today}}" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Total Time (min)</span></label>
+                    <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0" />
+                </div>
+            </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Warmup</span></label>
                 <textarea name="warmup" class="textarea textarea-bordered" rows="3"
                     placeholder="5 min row&#10;Shoulder mobility&#10;2 x 10 banded pull-aparts"></textarea>
-            </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Total Time (minutes)</span></label>
-                <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0" />
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Workouts (in order)</span></label>

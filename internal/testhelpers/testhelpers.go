@@ -61,6 +61,7 @@ func NewTestApp(t *testing.T) *TestApp {
 			}
 			return *i
 		},
+		"inc": func(i int) int { return i + 1 },
 	}
 
 	tmpl := template.Must(

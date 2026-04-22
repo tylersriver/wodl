@@ -1,11 +1,14 @@
 {{define "session_detail.html"}}
 {{template "head" .}}
 <div class="space-y-6">
-    <div class="flex justify-between items-start">
+    <div class="flex justify-between items-start gap-3 flex-wrap">
         <div>
             <a href="/sessions" class="btn btn-ghost btn-sm">&larr; Back</a>
             <h1 class="text-3xl font-bold mt-2">{{.Session.Name}}</h1>
             <div class="flex flex-wrap gap-2 mt-1">
+                {{if .Session.Date}}
+                <span class="badge badge-outline">{{.Session.Date.Format "Mon, Jan 2, 2006"}}</span>
+                {{end}}
                 <span class="badge badge-accent">{{len .Session.Workouts}} workouts</span>
                 {{if .Session.TotalTimeMinutes}}
                 <span class="badge badge-outline">{{derefInt .Session.TotalTimeMinutes}} min</span>
@@ -29,30 +32,42 @@
     </div>
     {{end}}
 
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">Workouts</h2>
-            {{if .Session.Workouts}}
-            <ol class="space-y-4 list-decimal list-inside">
-                {{range .Session.Workouts}}
-                <li>
-                    <a href="/workouts/{{.Id}}" class="link font-semibold">{{.Name}}</a>
-                    <span class="badge badge-secondary badge-sm ml-2">{{.Type}}</span>
-                    {{if .Description}}
-                    <pre class="whitespace-pre-wrap text-sm text-base-content/70 ml-6 mt-1">{{.Description}}</pre>
+    <div class="space-y-3">
+        <h2 class="text-xl font-bold">Workouts</h2>
+        {{if .Session.Workouts}}
+        <div class="space-y-3">
+            {{range $i, $w := .Session.Workouts}}
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <div class="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                            <span class="text-xs uppercase tracking-wide text-base-content/50">Step {{inc $i}}</span>
+                            <h3 class="card-title">
+                                <a href="/workouts/{{$w.Id}}" class="link">{{$w.Name}}</a>
+                            </h3>
+                            <span class="badge badge-secondary badge-sm">{{$w.Type}}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
+                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}}s</span>{{end}}
+                            {{if $w.Rounds}}<span>Rounds: {{derefInt $w.Rounds}}</span>{{end}}
+                            {{if $w.IntervalSeconds}}<span>Interval: {{derefInt $w.IntervalSeconds}}s</span>{{end}}
+                        </div>
+                    </div>
+                    {{if $w.Description}}
+                    <pre class="whitespace-pre-wrap text-sm text-base-content/80 mt-1">{{$w.Description}}</pre>
                     {{end}}
-                    {{if eq .Type "lifting"}}
-                    <div class="ml-6 mt-2">
-                        {{template "lifting_prescription" .}}
+                    {{if eq $w.Type "lifting"}}
+                    <div class="mt-2">
+                        {{template "lifting_prescription" $w}}
                     </div>
                     {{end}}
-                </li>
-                {{end}}
-            </ol>
-            {{else}}
-            <p class="text-sm text-base-content/50">No workouts in this session.</p>
+                </div>
+            </div>
             {{end}}
         </div>
+        {{else}}
+        <p class="text-sm text-base-content/50">No workouts in this session.</p>
+        {{end}}
     </div>
 </div>
 
@@ -66,14 +81,20 @@
                 <label class="label"><span class="label-text">Name</span></label>
                 <input type="text" name="name" class="input input-bordered" value="{{.Session.Name}}" required />
             </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm" value="{{.DateStr}}" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Total Time (min)</span></label>
+                    <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0"
+                        {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
+                </div>
+            </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Warmup</span></label>
                 <textarea name="warmup" class="textarea textarea-bordered" rows="3">{{.Session.Warmup}}</textarea>
-            </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Total Time (minutes)</span></label>
-                <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0"
-                    {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Workouts (in order)</span></label>

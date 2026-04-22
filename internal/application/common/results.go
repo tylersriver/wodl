@@ -61,6 +61,7 @@ type SessionResult struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
+	Date             *time.Time
 	TotalTimeMinutes *int
 	Workouts         []*WorkoutResult
 	CreatedAt        time.Time

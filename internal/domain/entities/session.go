@@ -14,6 +14,7 @@ type Session struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
+	Date             *time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 	CreatedAt        time.Time
@@ -39,13 +40,14 @@ func (s *Session) validate() error {
 	return nil
 }
 
-func NewSession(userId uuid.UUID, name, warmup string, totalTimeMinutes *int, workoutIds []uuid.UUID) *Session {
+func NewSession(userId uuid.UUID, name, warmup string, date *time.Time, totalTimeMinutes *int, workoutIds []uuid.UUID) *Session {
 	now := time.Now()
 	return &Session{
 		Id:               uuid.Must(uuid.NewV7()),
 		UserId:           userId,
 		Name:             name,
 		Warmup:           warmup,
+		Date:             date,
 		TotalTimeMinutes: totalTimeMinutes,
 		WorkoutIds:       workoutIds,
 		CreatedAt:        now,
@@ -60,6 +62,11 @@ func (s *Session) UpdateName(name string) {
 
 func (s *Session) UpdateWarmup(warmup string) {
 	s.Warmup = warmup
+	s.UpdatedAt = time.Now()
+}
+
+func (s *Session) UpdateDate(date *time.Time) {
+	s.Date = date
 	s.UpdatedAt = time.Now()
 }
 

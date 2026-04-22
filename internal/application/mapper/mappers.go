@@ -83,6 +83,7 @@ func SessionToResult(s *entities.Session, workouts []*entities.Workout) *common.
 		UserId:           s.UserId,
 		Name:             s.Name,
 		Warmup:           s.Warmup,
+		Date:             s.Date,
 		TotalTimeMinutes: s.TotalTimeMinutes,
 		Workouts:         ws,
 		CreatedAt:        s.CreatedAt,

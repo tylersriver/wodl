@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id TEXT NOT NULL REFERENCES users(id),
     name TEXT NOT NULL,
     warmup TEXT,
+    session_date DATETIME,
     total_time_minutes INTEGER,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -110,6 +111,15 @@ var workoutLiftingColumns = []struct {
 	{"lift_id", "ALTER TABLE workouts ADD COLUMN lift_id TEXT REFERENCES lifts(id)"},
 }
 
+// sessionColumns adds columns added to the sessions table after its initial
+// introduction; idempotent for databases that already had the sessions table.
+var sessionColumns = []struct {
+	name string
+	ddl  string
+}{
+	{"session_date", "ALTER TABLE sessions ADD COLUMN session_date DATETIME"},
+}
+
 func NewDB(dataSourceName string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dataSourceName)
 	if err != nil {
@@ -127,15 +137,23 @@ func NewDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
-	if err := ensureWorkoutLiftingColumns(db); err != nil {
+	if err := ensureColumns(db, "workouts", workoutLiftingColumns); err != nil {
 		return nil, fmt.Errorf("ensuring workout lifting columns: %w", err)
+	}
+	if err := ensureColumns(db, "sessions", sessionColumns); err != nil {
+		return nil, fmt.Errorf("ensuring session columns: %w", err)
 	}
 
 	return db, nil
 }
 
-func ensureWorkoutLiftingColumns(db *sql.DB) error {
-	rows, err := db.Query(`PRAGMA table_info(workouts)`)
+// ensureColumns runs ALTER TABLE ADD COLUMN for each column missing from the
+// given table, skipping ones already present. Idempotent.
+func ensureColumns(db *sql.DB, table string, cols []struct {
+	name string
+	ddl  string
+}) error {
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
 		return err
 	}
@@ -156,12 +174,11 @@ func ensureWorkoutLiftingColumns(db *sql.DB) error {
 		return err
 	}
 
-	for _, col := range workoutLiftingColumns {
+	for _, col := range cols {
 		if existing[col.name] {
 			continue
 		}
 		if _, err := db.Exec(col.ddl); err != nil {
-			// If another process added it in the meantime, SQLite reports a duplicate column error.
 			if !strings.Contains(err.Error(), "duplicate column") {
 				return fmt.Errorf("adding column %s: %w", col.name, err)
 			}

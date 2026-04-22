@@ -14,7 +14,7 @@
     <div class="flex-1">
         <a href="/" class="btn btn-ghost text-xl font-bold">WODL</a>
     </div>
-    <div class="flex-none flex items-center gap-1">
+    <div class="flex-none items-center gap-1 hidden sm:flex">
         <ul class="menu menu-horizontal px-1">
             <li><a href="/lifts">Lifts</a></li>
             <li><a href="/workouts">Workouts</a></li>
@@ -23,6 +23,23 @@
         <form method="POST" action="/logout">
             <button type="submit" class="btn btn-ghost btn-sm">Logout</button>
         </form>
+    </div>
+    <div class="flex-none sm:hidden dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost" aria-label="Menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </label>
+        <ul tabindex="0" class="menu dropdown-content menu-sm mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+            <li><a href="/lifts">Lifts</a></li>
+            <li><a href="/workouts">Workouts</a></li>
+            <li><a href="/sessions">Sessions</a></li>
+            <li>
+                <form method="POST" action="/logout" class="p-0">
+                    <button type="submit" class="w-full text-left px-3 py-2">Logout</button>
+                </form>
+            </li>
+        </ul>
     </div>
 </div>
 <main class="container mx-auto px-4 py-8 max-w-4xl">
