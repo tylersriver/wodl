@@ -1,9 +1,15 @@
 {{define "workouts.html"}}
 {{template "head" .}}
 <div class="space-y-6">
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center flex-wrap gap-3">
         <h1 class="text-3xl font-bold">Workouts</h1>
-        <label for="create-workout-modal" class="btn btn-secondary">Add Workout</label>
+        <div class="flex items-center gap-2">
+            <a href="/workouts{{if not .IncludeLifting}}?include_lifting=1{{end}}"
+               class="btn btn-sm {{if .IncludeLifting}}btn-primary{{else}}btn-outline{{end}}">
+                {{if .IncludeLifting}}Lifting: On{{else}}Include Lifting{{end}}
+            </a>
+            <label for="create-workout-modal" class="btn btn-secondary btn-sm">Add</label>
+        </div>
     </div>
 
     {{if .Workouts}}
@@ -33,16 +39,32 @@
         <h3 class="font-bold text-lg">Add New Workout</h3>
         <form method="POST" action="/workouts" class="space-y-4 mt-4">
             <div class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Fran" required />
-            </div>
-            <div class="form-control">
                 <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered">
+                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'create')">
                     {{range .WorkoutTypes}}
                     <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
+            </div>
+            <div id="create-name-field" class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Fran" />
+            </div>
+            <div id="create-lifting-fields" class="border-l-2 border-primary/40 pl-3 space-y-3 hidden">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Lift</span></label>
+                    <select name="lift_id" class="select select-bordered select-sm">
+                        <option value="">(none)</option>
+                        {{range .Lifts}}
+                        <option value="{{.Id}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm" value="{{.Today}}" />
+                    <p class="text-xs text-base-content/50 mt-1">Title is generated from the lift and date.</p>
+                </div>
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Description</span></label>
@@ -51,8 +73,8 @@
             </div>
             <div class="grid grid-cols-3 gap-3">
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Time Cap (sec)</span></label>
-                    <input type="number" name="time_cap" class="input input-bordered input-sm" />
+                    <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" min="0" />
                 </div>
                 <div class="form-control">
                     <label class="label"><span class="label-text">Rounds</span></label>
@@ -60,7 +82,7 @@
                 </div>
                 <div class="form-control">
                     <label class="label"><span class="label-text">Interval (sec)</span></label>
-                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" />
+                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" min="0" />
                 </div>
             </div>
             <div class="modal-action">
@@ -71,5 +93,19 @@
     </div>
     <label class="modal-backdrop" for="create-workout-modal"></label>
 </div>
+
+<script>
+// toggleLiftingFields hides/shows the lift+date block and toggles the plain
+// name input when the user switches a workout to/from the "lifting" type.
+// For lifting, the server derives the title from the selected lift + date,
+// so the name input is replaced entirely.
+function toggleLiftingFields(select, prefix) {
+    var lifting = document.getElementById(prefix + '-lifting-fields');
+    var name = document.getElementById(prefix + '-name-field');
+    var isLifting = select.value === 'lifting';
+    if (lifting) lifting.classList.toggle('hidden', !isLifting);
+    if (name) name.classList.toggle('hidden', isLifting);
+}
+</script>
 {{template "tail" .}}
 {{end}}

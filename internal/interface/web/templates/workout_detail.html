@@ -15,16 +15,22 @@
         </div>
     </div>
 
-    {{if .Workout.Description}}
+    {{if or .Workout.Description .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds (eq .Workout.Type "lifting")}}
     <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
             <h2 class="card-title">Prescription</h2>
+            {{if .Workout.Description}}
             <pre class="whitespace-pre-wrap text-sm">{{.Workout.Description}}</pre>
-            <div class="flex gap-4 mt-2 text-sm text-base-content/70">
-                {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}}s</span>{{end}}
+            {{end}}
+            <div class="flex flex-wrap gap-4 mt-2 text-sm text-base-content/70">
+                {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}} min</span>{{end}}
                 {{if .Workout.Rounds}}<span>Rounds: {{derefInt .Workout.Rounds}}</span>{{end}}
                 {{if .Workout.IntervalSeconds}}<span>Interval: {{derefInt .Workout.IntervalSeconds}}s</span>{{end}}
             </div>
+            {{if eq .Workout.Type "lifting"}}
+            <div class="divider my-2"></div>
+            {{template "lifting_prescription" .Workout}}
+            {{end}}
         </div>
     </div>
     {{end}}
@@ -103,16 +109,35 @@
         <form method="POST" action="/workouts/{{.Workout.Id}}" class="space-y-4 mt-4">
             <input type="hidden" name="_method" value="PUT" />
             <div class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" value="{{.Workout.Name}}" required />
-            </div>
-            <div class="form-control">
                 <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered">
+                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'edit')">
                     {{range $.WorkoutTypes}}
                     <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{.}}</option>
                     {{end}}
                 </select>
+            </div>
+            <div id="edit-name-field" class="form-control {{if eq .Workout.Type "lifting"}}hidden{{end}}">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" value="{{.Workout.Name}}" />
+            </div>
+            <div id="edit-lifting-fields" class="border-l-2 border-primary/40 pl-3 space-y-3 {{if ne .Workout.Type "lifting"}}hidden{{end}}">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Lift</span></label>
+                    <select name="lift_id" class="select select-bordered select-sm">
+                        <option value="">(none)</option>
+                        {{$current := ""}}
+                        {{if .Workout.LiftId}}{{$current = printf "%s" .Workout.LiftId}}{{end}}
+                        {{range $.Lifts}}
+                        <option value="{{.Id}}" {{if eq .Id.String $current}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm"
+                        value="{{.Workout.CreatedAt.Format "2006-01-02"}}" />
+                    <p class="text-xs text-base-content/50 mt-1">Title is generated from the lift and date.</p>
+                </div>
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Description</span></label>
@@ -120,8 +145,8 @@
             </div>
             <div class="grid grid-cols-3 gap-3">
                 <div class="form-control">
-                    <label class="label"><span class="label-text">Time Cap</span></label>
-                    <input type="number" name="time_cap" class="input input-bordered input-sm"
+                    <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                    <input type="number" name="time_cap" class="input input-bordered input-sm" min="0"
                         {{if .Workout.TimeCap}}value="{{derefInt .Workout.TimeCap}}"{{end}} />
                 </div>
                 <div class="form-control">
@@ -143,5 +168,17 @@
     </div>
     <label class="modal-backdrop" for="edit-workout-modal"></label>
 </div>
+
+<script>
+// toggleLiftingFields hides/shows the lift+date block and toggles the plain
+// name input when the user switches a workout to/from the "lifting" type.
+function toggleLiftingFields(select, prefix) {
+    var lifting = document.getElementById(prefix + '-lifting-fields');
+    var name = document.getElementById(prefix + '-name-field');
+    var isLifting = select.value === 'lifting';
+    if (lifting) lifting.classList.toggle('hidden', !isLifting);
+    if (name) name.classList.toggle('hidden', isLifting);
+}
+</script>
 {{template "tail" .}}
 {{end}}

@@ -1,6 +1,8 @@
 package query
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/common"
 )
@@ -63,4 +65,31 @@ type GetRecentWorkoutResultsQuery struct {
 
 type GetRecentWorkoutResultsQueryResult struct {
 	Results []*common.WorkoutResultResult
+}
+
+type GetSessionsByUserQuery struct {
+	UserId uuid.UUID
+}
+
+type GetSessionsByUserQueryResult struct {
+	Results []*common.SessionResult
+}
+
+type GetSessionByIdQuery struct {
+	Id     uuid.UUID
+	UserId uuid.UUID
+}
+
+type GetSessionByIdQueryResult struct {
+	Session *common.SessionResult
+}
+
+type GetSessionLogsInRangeQuery struct {
+	UserId uuid.UUID
+	Start  time.Time
+	End    time.Time
+}
+
+type GetSessionLogsInRangeQueryResult struct {
+	Results []*common.SessionLogResult
 }

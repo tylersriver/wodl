@@ -1,0 +1,22 @@
+{{define "workout_selector"}}
+<div class="form-control">
+    <label class="label"><span class="label-text">Workouts (click in order)</span></label>
+    {{if .Workouts}}
+    <div class="workout-selector-root max-h-60 overflow-y-auto border border-base-300 rounded p-2 space-y-1"
+         data-ids-container="{{.Prefix}}-workout-ids"
+         data-initial="{{.InitialOrderCSV}}">
+        {{range .Workouts}}
+        <label class="label cursor-pointer justify-start gap-3 py-1">
+            <input type="checkbox" data-workout-id="{{.Id}}" class="checkbox checkbox-sm" />
+            <span class="workout-order-badge badge badge-accent badge-sm hidden w-6"></span>
+            <span class="label-text flex-1">{{.Name}} <span class="badge badge-ghost badge-sm">{{.Type}}</span></span>
+        </label>
+        {{end}}
+    </div>
+    <div id="{{.Prefix}}-workout-ids" class="hidden"></div>
+    <p class="text-xs text-base-content/50 mt-1">The number on each row is the position the workout will appear in the session.</p>
+    {{else}}
+    <p class="text-sm text-base-content/50">You have no workouts yet. <a href="/workouts" class="link">Create one first</a>.</p>
+    {{end}}
+</div>
+{{end}}

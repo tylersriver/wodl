@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS workouts (
     time_cap INTEGER,
     rounds INTEGER,
     interval_seconds INTEGER,
+    lift_id TEXT REFERENCES lifts(id),
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     deleted_at DATETIME
@@ -69,13 +71,66 @@ CREATE TABLE IF NOT EXISTS workout_results (
     created_at DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL,
+    warmup TEXT,
+    session_date DATETIME,
+    total_time_minutes INTEGER,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS session_workouts (
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    workout_id TEXT NOT NULL REFERENCES workouts(id),
+    position INTEGER NOT NULL,
+    PRIMARY KEY (session_id, position)
+);
+
+CREATE TABLE IF NOT EXISTS session_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    performed_at DATETIME NOT NULL,
+    notes TEXT,
+    created_at DATETIME NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_lifts_user_id ON lifts(user_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_lift_id ON lift_logs(lift_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_user_id ON lift_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workouts_user_id ON workouts(user_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_workout_id ON workout_results(workout_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_user_id ON workout_results(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_workouts_session_id ON session_workouts(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_workouts_workout_id ON session_workouts(workout_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_user_id ON session_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_session_id ON session_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_performed_at ON session_logs(performed_at);
 `
+
+// workoutLiftingColumns adds the lifting-specific columns to the workouts table
+// if they don't already exist (idempotent migration for databases created before
+// the lifting feature).
+var workoutLiftingColumns = []struct {
+	name string
+	ddl  string
+}{
+	{"lift_id", "ALTER TABLE workouts ADD COLUMN lift_id TEXT REFERENCES lifts(id)"},
+}
+
+// sessionColumns adds columns added to the sessions table after its initial
+// introduction; idempotent for databases that already had the sessions table.
+var sessionColumns = []struct {
+	name string
+	ddl  string
+}{
+	{"session_date", "ALTER TABLE sessions ADD COLUMN session_date DATETIME"},
+}
 
 func NewDB(dataSourceName string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dataSourceName)
@@ -94,5 +149,82 @@ func NewDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
+	if err := ensureColumns(db, "workouts", workoutLiftingColumns); err != nil {
+		return nil, fmt.Errorf("ensuring workout lifting columns: %w", err)
+	}
+	if err := ensureColumns(db, "sessions", sessionColumns); err != nil {
+		return nil, fmt.Errorf("ensuring session columns: %w", err)
+	}
+	if err := runVersionedMigrations(db); err != nil {
+		return nil, fmt.Errorf("running versioned migrations: %w", err)
+	}
+
 	return db, nil
+}
+
+// runVersionedMigrations applies migrations gated by SQLite's PRAGMA user_version
+// so each runs exactly once per database.
+func runVersionedMigrations(db *sql.DB) error {
+	var version int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return fmt.Errorf("reading user_version: %w", err)
+	}
+
+	// v1: workouts.time_cap changed units from seconds to minutes.
+	if version < 1 {
+		if _, err := db.Exec(
+			`UPDATE workouts
+			 SET time_cap = CASE
+			     WHEN time_cap IS NULL OR time_cap <= 0 THEN time_cap
+			     ELSE MAX(1, (time_cap + 30) / 60)
+			 END`,
+		); err != nil {
+			return fmt.Errorf("migrating time_cap to minutes: %w", err)
+		}
+		if _, err := db.Exec(`PRAGMA user_version = 1`); err != nil {
+			return fmt.Errorf("bumping user_version to 1: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ensureColumns runs ALTER TABLE ADD COLUMN for each column missing from the
+// given table, skipping ones already present. Idempotent.
+func ensureColumns(db *sql.DB, table string, cols []struct {
+	name string
+	ddl  string
+}) error {
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	existing := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		existing[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, col := range cols {
+		if existing[col.name] {
+			continue
+		}
+		if _, err := db.Exec(col.ddl); err != nil {
+			if !strings.Contains(err.Error(), "duplicate column") {
+				return fmt.Errorf("adding column %s: %w", col.name, err)
+			}
+		}
+	}
+	return nil
 }

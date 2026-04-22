@@ -15,11 +15,17 @@ import (
 type DashboardHandler struct {
 	liftService    *services.LiftService
 	workoutService *services.WorkoutService
+	sessionService *services.SessionService
 	templates      *template.Template
 }
 
-func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, templates *template.Template) *DashboardHandler {
-	return &DashboardHandler{liftService: liftService, workoutService: workoutService, templates: templates}
+func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, sessionService *services.SessionService, templates *template.Template) *DashboardHandler {
+	return &DashboardHandler{
+		liftService:    liftService,
+		workoutService: workoutService,
+		sessionService: sessionService,
+		templates:      templates,
+	}
 }
 
 func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
@@ -35,12 +41,14 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
+	sessions, _ := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId})
 
 	data := map[string]interface{}{
 		"RecentLogs":    nil,
 		"RecentResults": nil,
 		"Lifts":         nil,
 		"Workouts":      nil,
+		"Sessions":      nil,
 		"Categories":    entities.ValidLiftCategories(),
 		"WorkoutTypes":  entities.ValidWorkoutTypes(),
 	}
@@ -55,6 +63,9 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results
+	}
+	if sessions != nil {
+		data["Sessions"] = sessions.Results
 	}
 
 	h.templates.ExecuteTemplate(w, "dashboard.html", data)
@@ -71,6 +82,7 @@ func (h *DashboardHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 	var matchedLifts []*common.LiftResult
 	var matchedWorkouts []*common.WorkoutResult
+	var matchedSessions []*common.SessionResult
 
 	if lifts, err := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId}); err == nil && lifts != nil {
 		for _, l := range lifts.Results {
@@ -88,9 +100,18 @@ func (h *DashboardHandler) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if sessions, err := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId}); err == nil && sessions != nil {
+		for _, s := range sessions.Results {
+			if strings.Contains(strings.ToLower(s.Name), q) || strings.Contains(strings.ToLower(s.Warmup), q) {
+				matchedSessions = append(matchedSessions, s)
+			}
+		}
+	}
+
 	data := map[string]interface{}{
 		"Lifts":    matchedLifts,
 		"Workouts": matchedWorkouts,
+		"Sessions": matchedSessions,
 	}
 	h.templates.ExecuteTemplate(w, "search_results.html", data)
 }

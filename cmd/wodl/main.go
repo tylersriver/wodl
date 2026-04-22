@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -54,11 +55,14 @@ func main() {
 	liftLogRepo := sqlite.NewLiftLogRepository(db)
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
+	sessionRepo := sqlite.NewSessionRepository(db)
+	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -74,6 +78,8 @@ func main() {
 			}
 			return *i
 		},
+		"inc":  func(i int) int { return i + 1 },
+		"dict": dictFunc,
 	}
 
 	tmpl := template.Must(
@@ -82,9 +88,10 @@ func main() {
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
-	workoutHandler := handlers.NewWorkoutHandler(workoutService, tmpl)
+	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -126,6 +133,14 @@ func main() {
 		r.Delete("/workouts/{id}", workoutHandler.Delete)
 		r.Post("/workouts/{id}/results", workoutHandler.CreateResult)
 
+		r.Get("/sessions", sessionHandler.List)
+		r.Post("/sessions", sessionHandler.Create)
+		r.Get("/sessions/{id}", sessionHandler.Detail)
+		r.Put("/sessions/{id}", sessionHandler.Update)
+		r.Delete("/sessions/{id}", sessionHandler.Delete)
+		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
+		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
+
 		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
@@ -134,6 +149,23 @@ func main() {
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// dictFunc builds a map from alternating key/value template args so partials
+// can be invoked with named fields — e.g. {{template "x" (dict "K" v)}}.
+func dictFunc(values ...interface{}) (map[string]interface{}, error) {
+	if len(values)%2 != 0 {
+		return nil, errors.New("dict: odd number of args")
+	}
+	m := make(map[string]interface{}, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		key, ok := values[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("dict: key must be string, got %T", values[i])
+		}
+		m[key] = values[i+1]
+	}
+	return m, nil
 }
 
 // methodOverride allows HTML forms to use PUT/DELETE via _method field.

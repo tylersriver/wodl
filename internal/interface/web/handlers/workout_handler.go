@@ -1,27 +1,33 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/command"
+	"github.com/tyler/wodl/internal/application/common"
 	"github.com/tyler/wodl/internal/application/query"
 	"github.com/tyler/wodl/internal/application/services"
 	"github.com/tyler/wodl/internal/domain/entities"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
 )
 
+const liftingTitleDateFormat = "Jan 2, 2006"
+
 type WorkoutHandler struct {
 	workoutService *services.WorkoutService
+	liftService    *services.LiftService
 	templates      *template.Template
 }
 
-func NewWorkoutHandler(workoutService *services.WorkoutService, templates *template.Template) *WorkoutHandler {
-	return &WorkoutHandler{workoutService: workoutService, templates: templates}
+func NewWorkoutHandler(workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template) *WorkoutHandler {
+	return &WorkoutHandler{workoutService: workoutService, liftService: liftService, templates: templates}
 }
 
 func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -31,12 +37,35 @@ func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
 
-	h.templates.ExecuteTemplate(w, "workouts.html", map[string]interface{}{
-		"Workouts":     result.Results,
-		"WorkoutTypes": entities.ValidWorkoutTypes(),
-		"ScoreTypes":   entities.ValidScoreTypes(),
-	})
+	// Lifting workouts are excluded from the list by default since they're
+	// driven by their linked Lift's 1RM table rather than a standalone
+	// prescription; users can opt in with ?include_lifting=1.
+	includeLifting := r.URL.Query().Get("include_lifting") == "1"
+	visible := result.Results
+	if !includeLifting {
+		filtered := visible[:0:0]
+		for _, wr := range visible {
+			if wr.Type != string(entities.WorkoutTypeLifting) {
+				filtered = append(filtered, wr)
+			}
+		}
+		visible = filtered
+	}
+
+	data := map[string]interface{}{
+		"Workouts":       visible,
+		"WorkoutTypes":   entities.ValidWorkoutTypes(),
+		"ScoreTypes":     entities.ValidScoreTypes(),
+		"Lifts":          nil,
+		"IncludeLifting": includeLifting,
+		"Today":          time.Now().Format("2006-01-02"),
+	}
+	if lifts != nil {
+		data["Lifts"] = lifts.Results
+	}
+	h.templates.ExecuteTemplate(w, "workouts.html", data)
 }
 
 func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -49,21 +78,15 @@ func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
+	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
 
-	if v := r.FormValue("time_cap"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.TimeCap = &n
+	if cmd.Type == string(entities.WorkoutTypeLifting) {
+		name, err := h.deriveLiftingName(userId, cmd.LiftId, r.FormValue("date"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-	}
-	if v := r.FormValue("rounds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.Rounds = &n
-		}
-	}
-	if v := r.FormValue("interval_seconds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.IntervalSeconds = &n
-		}
+		cmd.Name = name
 	}
 
 	_, err := h.workoutService.CreateWorkout(cmd)
@@ -89,12 +112,21 @@ func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.templates.ExecuteTemplate(w, "workout_detail.html", map[string]interface{}{
+	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
+	enrichLiftingWorkout(result.Workout, h.liftService, userId)
+
+	data := map[string]interface{}{
 		"Workout":      result.Workout,
 		"Results":      result.Results,
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"ScoreTypes":   entities.ValidScoreTypes(),
-	})
+		"Lifts":        nil,
+		"Today":        time.Now().Format("2006-01-02"),
+	}
+	if lifts != nil {
+		data["Lifts"] = lifts.Results
+	}
+	h.templates.ExecuteTemplate(w, "workout_detail.html", data)
 }
 
 func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -113,21 +145,15 @@ func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
+	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
 
-	if v := r.FormValue("time_cap"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.TimeCap = &n
+	if cmd.Type == string(entities.WorkoutTypeLifting) {
+		name, err := h.deriveLiftingName(userId, cmd.LiftId, r.FormValue("date"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-	}
-	if v := r.FormValue("rounds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.Rounds = &n
-		}
-	}
-	if v := r.FormValue("interval_seconds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.IntervalSeconds = &n
-		}
+		cmd.Name = name
 	}
 
 	if err := h.workoutService.UpdateWorkout(cmd); err != nil {
@@ -184,4 +210,73 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
+}
+
+// deriveLiftingName auto-generates the title for a lifting-type workout so the
+// user doesn't have to pick one — "{LiftName} — {Date}". Requires both a lift
+// and a YYYY-MM-DD date.
+func (h *WorkoutHandler) deriveLiftingName(userId uuid.UUID, liftId *uuid.UUID, dateStr string) (string, error) {
+	if liftId == nil {
+		return "", errors.New("a lift is required for lifting workouts")
+	}
+	if dateStr == "" {
+		return "", errors.New("a date is required for lifting workouts")
+	}
+	date, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+	if err != nil {
+		return "", fmt.Errorf("invalid date: %w", err)
+	}
+	result, err := h.liftService.GetLiftById(&query.GetLiftByIdQuery{Id: *liftId, UserId: userId})
+	if err != nil {
+		return "", err
+	}
+	if result == nil || result.Lift == nil {
+		return "", errors.New("lift not found")
+	}
+	return fmt.Sprintf("%s — %s", result.Lift.Name, date.Format(liftingTitleDateFormat)), nil
+}
+
+// applyWorkoutFormFields parses the optional integer/uuid workout form fields
+// off the request and assigns them to the target pointers when present.
+func applyWorkoutFormFields(r *http.Request, timeCap, rounds, interval **int, liftId **uuid.UUID) {
+	parseInt := func(key string, dest **int) {
+		if v := r.FormValue(key); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				*dest = &n
+			}
+		}
+	}
+	parseInt("time_cap", timeCap)
+	parseInt("rounds", rounds)
+	parseInt("interval_seconds", interval)
+
+	if v := r.FormValue("lift_id"); v != "" {
+		if id, err := uuid.Parse(v); err == nil {
+			*liftId = &id
+		}
+	}
+}
+
+// enrichLiftingWorkout fetches the linked Lift for a lifting-type workout and
+// populates its 1RM percentage table on the result so templates can render
+// them without extra lookups.
+func enrichLiftingWorkout(wr *common.WorkoutResult, liftService *services.LiftService, userId uuid.UUID) {
+	if wr == nil || wr.Type != string(entities.WorkoutTypeLifting) || wr.LiftId == nil {
+		return
+	}
+	result, err := liftService.GetLiftById(&query.GetLiftByIdQuery{Id: *wr.LiftId, UserId: userId})
+	if err != nil || result == nil {
+		return
+	}
+	wr.Lift = result.Lift
+	if len(result.PercentageTable) == 0 {
+		return
+	}
+	wr.PercentageTable = result.PercentageTable
+	keys := make([]int, 0, len(result.PercentageTable))
+	for k := range result.PercentageTable {
+		keys = append(keys, k)
+	}
+	sortInts(keys)
+	wr.PctKeys = keys
 }

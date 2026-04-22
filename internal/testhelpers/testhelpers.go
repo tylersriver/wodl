@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -22,6 +23,7 @@ type TestApp struct {
 	AuthService    *services.AuthService
 	LiftService    *services.LiftService
 	WorkoutService *services.WorkoutService
+	SessionService *services.SessionService
 	JWTService     *auth.JWTService
 }
 
@@ -40,10 +42,13 @@ func NewTestApp(t *testing.T) *TestApp {
 	liftLogRepo := sqlite.NewLiftLogRepository(db)
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
+	sessionRepo := sqlite.NewSessionRepository(db)
+	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
 
 	funcMap := template.FuncMap{
 		"deref": func(f *float64) float64 {
@@ -58,6 +63,21 @@ func NewTestApp(t *testing.T) *TestApp {
 			}
 			return *i
 		},
+		"inc": func(i int) int { return i + 1 },
+		"dict": func(values ...interface{}) (map[string]interface{}, error) {
+			if len(values)%2 != 0 {
+				return nil, fmt.Errorf("dict: odd args")
+			}
+			m := make(map[string]interface{}, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				k, ok := values[i].(string)
+				if !ok {
+					return nil, fmt.Errorf("dict: non-string key")
+				}
+				m[k] = values[i+1]
+			}
+			return m, nil
+		},
 	}
 
 	tmpl := template.Must(
@@ -65,9 +85,10 @@ func NewTestApp(t *testing.T) *TestApp {
 	)
 
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
-	workoutHandler := handlers.NewWorkoutHandler(workoutService, tmpl)
+	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
 
 	r := chi.NewRouter()
 	r.Use(methodOverride)
@@ -98,6 +119,14 @@ func NewTestApp(t *testing.T) *TestApp {
 		r.Delete("/workouts/{id}", workoutHandler.Delete)
 		r.Post("/workouts/{id}/results", workoutHandler.CreateResult)
 
+		r.Get("/sessions", sessionHandler.List)
+		r.Post("/sessions", sessionHandler.Create)
+		r.Get("/sessions/{id}", sessionHandler.Detail)
+		r.Put("/sessions/{id}", sessionHandler.Update)
+		r.Delete("/sessions/{id}", sessionHandler.Delete)
+		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
+		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
+
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
 
@@ -114,6 +143,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		AuthService:    authService,
 		LiftService:    liftService,
 		WorkoutService: workoutService,
+		SessionService: sessionService,
 		JWTService:     jwtService,
 	}
 }

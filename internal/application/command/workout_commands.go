@@ -13,6 +13,7 @@ type CreateWorkoutCommand struct {
 	TimeCap         *int
 	Rounds          *int
 	IntervalSeconds *int
+	LiftId          *uuid.UUID
 }
 
 type UpdateWorkoutCommand struct {
@@ -24,6 +25,7 @@ type UpdateWorkoutCommand struct {
 	TimeCap         *int
 	Rounds          *int
 	IntervalSeconds *int
+	LiftId          *uuid.UUID
 }
 
 type DeleteWorkoutCommand struct {

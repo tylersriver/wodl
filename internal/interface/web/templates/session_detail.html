@@ -1,0 +1,163 @@
+{{define "session_detail.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-start gap-3 flex-wrap">
+        <div>
+            <a href="/sessions" class="btn btn-ghost btn-sm">&larr; Back</a>
+            <h1 class="text-3xl font-bold mt-2">{{.Session.Name}}</h1>
+            <div class="flex flex-wrap gap-2 mt-1">
+                {{if .Session.Date}}
+                <span class="badge badge-outline">{{.Session.Date.Format "Mon, Jan 2, 2006"}}</span>
+                {{end}}
+                <span class="badge badge-accent">{{len .Session.Workouts}} workouts</span>
+                {{if .Session.TotalTimeMinutes}}
+                <span class="badge badge-outline">{{derefInt .Session.TotalTimeMinutes}} min</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <label for="edit-session-modal" class="btn btn-outline btn-sm">Edit</label>
+            <button class="btn btn-error btn-sm"
+                hx-delete="/sessions/{{.Session.Id}}"
+                hx-confirm="Delete this session? (Workouts will be preserved.)">Delete</button>
+        </div>
+    </div>
+
+    {{if .Session.Warmup}}
+    <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+            <h2 class="card-title">Warmup</h2>
+            <pre class="whitespace-pre-wrap text-sm">{{.Session.Warmup}}</pre>
+        </div>
+    </div>
+    {{end}}
+
+    <div class="space-y-3">
+        <h2 class="text-xl font-bold">Workouts</h2>
+        {{if .Session.Workouts}}
+        <div class="space-y-3">
+            {{range $i, $w := .Session.Workouts}}
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <div class="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                            <span class="text-xs uppercase tracking-wide text-base-content/50">Step {{inc $i}}</span>
+                            <h3 class="card-title">
+                                <a href="/workouts/{{$w.Id}}" class="link">{{$w.Name}}</a>
+                            </h3>
+                            <span class="badge badge-secondary badge-sm">{{$w.Type}}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
+                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}} min</span>{{end}}
+                            {{if $w.Rounds}}<span>Rounds: {{derefInt $w.Rounds}}</span>{{end}}
+                            {{if $w.IntervalSeconds}}<span>Interval: {{derefInt $w.IntervalSeconds}}s</span>{{end}}
+                        </div>
+                    </div>
+                    {{if $w.Description}}
+                    <pre class="whitespace-pre-wrap text-sm text-base-content/80 mt-1">{{$w.Description}}</pre>
+                    {{end}}
+                    {{if eq $w.Type "lifting"}}
+                    <div class="mt-2">
+                        {{template "lifting_prescription" $w}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-sm text-base-content/50">No workouts in this session.</p>
+        {{end}}
+    </div>
+
+    <div class="space-y-3">
+        <h2 class="text-xl font-bold">Completions</h2>
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h3 class="card-title">Log Completion</h3>
+                <form method="POST" action="/sessions/{{.Session.Id}}/logs" class="space-y-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Performed On</span></label>
+                            <input type="date" name="performed_at" class="input input-bordered input-sm" value="{{.Today}}" required />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Notes</span></label>
+                            <input type="text" name="notes" class="input input-bordered input-sm" placeholder="optional" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-accent btn-sm">Mark Done</button>
+                </form>
+            </div>
+        </div>
+
+        {{if .Session.Logs}}
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h3 class="card-title">History</h3>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Session.Logs}}
+                            <tr>
+                                <td>{{.PerformedAt.Format "Mon, Jan 2, 2006"}}</td>
+                                <td>{{.Notes}}</td>
+                                <td>
+                                    <button class="btn btn-ghost btn-xs text-error"
+                                        hx-delete="/sessions/{{$.Session.Id}}/logs/{{.Id}}"
+                                        hx-confirm="Delete this completion record?">X</button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<input type="checkbox" id="edit-session-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box max-w-xl">
+        <h3 class="font-bold text-lg">Edit Session</h3>
+        <form method="POST" action="/sessions/{{.Session.Id}}" class="space-y-4 mt-4">
+            <input type="hidden" name="_method" value="PUT" />
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" value="{{.Session.Name}}" required />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm" value="{{.DateStr}}" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Total Time (min)</span></label>
+                    <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0"
+                        {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
+                </div>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Warmup</span></label>
+                <textarea name="warmup" class="textarea textarea-bordered" rows="3">{{.Session.Warmup}}</textarea>
+            </div>
+            {{template "workout_selector" (dict "Prefix" "edit" "Workouts" .Workouts "InitialOrderCSV" .WorkoutOrderCSV)}}
+            <div class="modal-action">
+                <label for="edit-session-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-accent">Save</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="edit-session-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}

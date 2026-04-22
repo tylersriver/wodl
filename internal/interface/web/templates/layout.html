@@ -14,14 +14,32 @@
     <div class="flex-1">
         <a href="/" class="btn btn-ghost text-xl font-bold">WODL</a>
     </div>
-    <div class="flex-none flex items-center gap-1">
+    <div class="flex-none items-center gap-1 hidden sm:flex">
         <ul class="menu menu-horizontal px-1">
             <li><a href="/lifts">Lifts</a></li>
             <li><a href="/workouts">Workouts</a></li>
+            <li><a href="/sessions">Sessions</a></li>
         </ul>
         <form method="POST" action="/logout">
             <button type="submit" class="btn btn-ghost btn-sm">Logout</button>
         </form>
+    </div>
+    <div class="flex-none sm:hidden dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost" aria-label="Menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </label>
+        <ul tabindex="0" class="menu dropdown-content menu-sm mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+            <li><a href="/lifts">Lifts</a></li>
+            <li><a href="/workouts">Workouts</a></li>
+            <li><a href="/sessions">Sessions</a></li>
+            <li>
+                <form method="POST" action="/logout" class="p-0">
+                    <button type="submit" class="w-full text-left px-3 py-2">Logout</button>
+                </form>
+            </li>
+        </ul>
     </div>
 </div>
 <main class="container mx-auto px-4 py-8 max-w-4xl">
@@ -29,6 +47,55 @@
 
 {{define "tail"}}
 </main>
+<script>
+// Attach click-ordered multi-select behaviour to any .workout-selector-root.
+// Each checkbox toggle pushes its workout id to an ordered list; that list
+// is re-emitted as hidden form inputs so the server receives ids in the
+// order the user selected them. Numeric badges reflect the 1-based position.
+document.querySelectorAll('.workout-selector-root').forEach(function (root) {
+    var ids = document.getElementById(root.dataset.idsContainer);
+    if (!ids) return;
+    var validIds = new Set();
+    root.querySelectorAll('input[type=checkbox][data-workout-id]').forEach(function (cb) {
+        validIds.add(cb.dataset.workoutId);
+    });
+    var order = (root.dataset.initial || '').split(',').filter(function (id) {
+        return id && validIds.has(id);
+    });
+
+    function render() {
+        ids.innerHTML = '';
+        order.forEach(function (id) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'workout_ids';
+            input.value = id;
+            ids.appendChild(input);
+        });
+        root.querySelectorAll('input[type=checkbox][data-workout-id]').forEach(function (cb) {
+            var idx = order.indexOf(cb.dataset.workoutId);
+            cb.checked = idx >= 0;
+            var badge = cb.parentElement.querySelector('.workout-order-badge');
+            if (badge) {
+                badge.textContent = idx >= 0 ? String(idx + 1) : '';
+                badge.classList.toggle('hidden', idx < 0);
+            }
+        });
+    }
+
+    root.addEventListener('change', function (e) {
+        var cb = e.target;
+        if (!cb.matches('input[type=checkbox][data-workout-id]')) return;
+        var id = cb.dataset.workoutId;
+        var pos = order.indexOf(id);
+        if (cb.checked && pos < 0) order.push(id);
+        if (!cb.checked && pos >= 0) order.splice(pos, 1);
+        render();
+    });
+
+    render();
+});
+</script>
 </body>
 </html>
 {{end}}
