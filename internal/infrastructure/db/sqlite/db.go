@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -52,6 +53,11 @@ CREATE TABLE IF NOT EXISTS workouts (
     time_cap INTEGER,
     rounds INTEGER,
     interval_seconds INTEGER,
+    lift_id TEXT REFERENCES lifts(id),
+    sets INTEGER,
+    reps INTEGER,
+    work_time_seconds INTEGER,
+    percentage REAL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     deleted_at DATETIME
@@ -69,13 +75,48 @@ CREATE TABLE IF NOT EXISTS workout_results (
     created_at DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL,
+    warmup TEXT,
+    total_time_minutes INTEGER,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS session_workouts (
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    workout_id TEXT NOT NULL REFERENCES workouts(id),
+    position INTEGER NOT NULL,
+    PRIMARY KEY (session_id, position)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lifts_user_id ON lifts(user_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_lift_id ON lift_logs(lift_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_user_id ON lift_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_workouts_user_id ON workouts(user_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_workout_id ON workout_results(workout_id);
 CREATE INDEX IF NOT EXISTS idx_workout_results_user_id ON workout_results(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_workouts_session_id ON session_workouts(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_workouts_workout_id ON session_workouts(workout_id);
 `
+
+// workoutLiftingColumns adds the lifting-specific columns to the workouts table
+// if they don't already exist (idempotent migration for databases created before
+// the lifting feature).
+var workoutLiftingColumns = []struct {
+	name string
+	ddl  string
+}{
+	{"lift_id", "ALTER TABLE workouts ADD COLUMN lift_id TEXT REFERENCES lifts(id)"},
+	{"sets", "ALTER TABLE workouts ADD COLUMN sets INTEGER"},
+	{"reps", "ALTER TABLE workouts ADD COLUMN reps INTEGER"},
+	{"work_time_seconds", "ALTER TABLE workouts ADD COLUMN work_time_seconds INTEGER"},
+	{"percentage", "ALTER TABLE workouts ADD COLUMN percentage REAL"},
+}
 
 func NewDB(dataSourceName string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dataSourceName)
@@ -94,5 +135,45 @@ func NewDB(dataSourceName string) (*sql.DB, error) {
 		return nil, fmt.Errorf("running migrations: %w", err)
 	}
 
+	if err := ensureWorkoutLiftingColumns(db); err != nil {
+		return nil, fmt.Errorf("ensuring workout lifting columns: %w", err)
+	}
+
 	return db, nil
+}
+
+func ensureWorkoutLiftingColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(workouts)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	existing := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		existing[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, col := range workoutLiftingColumns {
+		if existing[col.name] {
+			continue
+		}
+		if _, err := db.Exec(col.ddl); err != nil {
+			// If another process added it in the meantime, SQLite reports a duplicate column error.
+			if !strings.Contains(err.Error(), "duplicate column") {
+				return fmt.Errorf("adding column %s: %w", col.name, err)
+			}
+		}
+	}
+	return nil
 }

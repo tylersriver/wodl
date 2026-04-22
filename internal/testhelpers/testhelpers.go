@@ -22,6 +22,7 @@ type TestApp struct {
 	AuthService    *services.AuthService
 	LiftService    *services.LiftService
 	WorkoutService *services.WorkoutService
+	SessionService *services.SessionService
 	JWTService     *auth.JWTService
 }
 
@@ -40,10 +41,12 @@ func NewTestApp(t *testing.T) *TestApp {
 	liftLogRepo := sqlite.NewLiftLogRepository(db)
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
+	sessionRepo := sqlite.NewSessionRepository(db)
 
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 
 	funcMap := template.FuncMap{
 		"deref": func(f *float64) float64 {
@@ -65,9 +68,10 @@ func NewTestApp(t *testing.T) *TestApp {
 	)
 
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
-	workoutHandler := handlers.NewWorkoutHandler(workoutService, tmpl)
+	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, tmpl)
 
 	r := chi.NewRouter()
 	r.Use(methodOverride)
@@ -98,6 +102,12 @@ func NewTestApp(t *testing.T) *TestApp {
 		r.Delete("/workouts/{id}", workoutHandler.Delete)
 		r.Post("/workouts/{id}/results", workoutHandler.CreateResult)
 
+		r.Get("/sessions", sessionHandler.List)
+		r.Post("/sessions", sessionHandler.Create)
+		r.Get("/sessions/{id}", sessionHandler.Detail)
+		r.Put("/sessions/{id}", sessionHandler.Update)
+		r.Delete("/sessions/{id}", sessionHandler.Delete)
+
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
 
@@ -114,6 +124,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		AuthService:    authService,
 		LiftService:    liftService,
 		WorkoutService: workoutService,
+		SessionService: sessionService,
 		JWTService:     jwtService,
 	}
 }

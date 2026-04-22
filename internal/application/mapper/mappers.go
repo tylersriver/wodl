@@ -64,8 +64,33 @@ func WorkoutToResult(w *entities.Workout) *common.WorkoutResult {
 		TimeCap:         w.TimeCap,
 		Rounds:          w.Rounds,
 		IntervalSeconds: w.IntervalSeconds,
+		LiftId:          w.LiftId,
+		Sets:            w.Sets,
+		Reps:            w.Reps,
+		WorkTimeSeconds: w.WorkTimeSeconds,
+		Percentage:      w.Percentage,
 		CreatedAt:       w.CreatedAt,
 		UpdatedAt:       w.UpdatedAt,
+	}
+}
+
+func SessionToResult(s *entities.Session, workouts []*entities.Workout) *common.SessionResult {
+	if s == nil {
+		return nil
+	}
+	var ws []*common.WorkoutResult
+	for _, w := range workouts {
+		ws = append(ws, WorkoutToResult(w))
+	}
+	return &common.SessionResult{
+		Id:               s.Id,
+		UserId:           s.UserId,
+		Name:             s.Name,
+		Warmup:           s.Warmup,
+		TotalTimeMinutes: s.TotalTimeMinutes,
+		Workouts:         ws,
+		CreatedAt:        s.CreatedAt,
+		UpdatedAt:        s.UpdatedAt,
 	}
 }
 

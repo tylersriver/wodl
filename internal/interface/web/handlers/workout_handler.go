@@ -17,11 +17,12 @@ import (
 
 type WorkoutHandler struct {
 	workoutService *services.WorkoutService
+	liftService    *services.LiftService
 	templates      *template.Template
 }
 
-func NewWorkoutHandler(workoutService *services.WorkoutService, templates *template.Template) *WorkoutHandler {
-	return &WorkoutHandler{workoutService: workoutService, templates: templates}
+func NewWorkoutHandler(workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template) *WorkoutHandler {
+	return &WorkoutHandler{workoutService: workoutService, liftService: liftService, templates: templates}
 }
 
 func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -31,12 +32,18 @@ func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
 
-	h.templates.ExecuteTemplate(w, "workouts.html", map[string]interface{}{
+	data := map[string]interface{}{
 		"Workouts":     result.Results,
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"ScoreTypes":   entities.ValidScoreTypes(),
-	})
+		"Lifts":        nil,
+	}
+	if lifts != nil {
+		data["Lifts"] = lifts.Results
+	}
+	h.templates.ExecuteTemplate(w, "workouts.html", data)
 }
 
 func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -49,22 +56,8 @@ func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
-
-	if v := r.FormValue("time_cap"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.TimeCap = &n
-		}
-	}
-	if v := r.FormValue("rounds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.Rounds = &n
-		}
-	}
-	if v := r.FormValue("interval_seconds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.IntervalSeconds = &n
-		}
-	}
+	applyWorkoutNumericFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds,
+		&cmd.Sets, &cmd.Reps, &cmd.WorkTimeSeconds, &cmd.Percentage, &cmd.LiftId)
 
 	_, err := h.workoutService.CreateWorkout(cmd)
 	if err != nil {
@@ -89,12 +82,19 @@ func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.templates.ExecuteTemplate(w, "workout_detail.html", map[string]interface{}{
+	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
+
+	data := map[string]interface{}{
 		"Workout":      result.Workout,
 		"Results":      result.Results,
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"ScoreTypes":   entities.ValidScoreTypes(),
-	})
+		"Lifts":        nil,
+	}
+	if lifts != nil {
+		data["Lifts"] = lifts.Results
+	}
+	h.templates.ExecuteTemplate(w, "workout_detail.html", data)
 }
 
 func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -113,22 +113,8 @@ func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
-
-	if v := r.FormValue("time_cap"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.TimeCap = &n
-		}
-	}
-	if v := r.FormValue("rounds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.Rounds = &n
-		}
-	}
-	if v := r.FormValue("interval_seconds"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cmd.IntervalSeconds = &n
-		}
-	}
+	applyWorkoutNumericFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds,
+		&cmd.Sets, &cmd.Reps, &cmd.WorkTimeSeconds, &cmd.Percentage, &cmd.LiftId)
 
 	if err := h.workoutService.UpdateWorkout(cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -184,4 +170,34 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
+}
+
+// applyWorkoutNumericFields parses all of the optional integer/float/uuid
+// lifting-related form fields off the request and assigns them to the target
+// pointers when present. Unset inputs leave the pointer nil.
+func applyWorkoutNumericFields(r *http.Request, timeCap, rounds, interval, sets, reps, workTime **int, percentage **float64, liftId **uuid.UUID) {
+	parseInt := func(key string, dest **int) {
+		if v := r.FormValue(key); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				*dest = &n
+			}
+		}
+	}
+	parseInt("time_cap", timeCap)
+	parseInt("rounds", rounds)
+	parseInt("interval_seconds", interval)
+	parseInt("sets", sets)
+	parseInt("reps", reps)
+	parseInt("work_time_seconds", workTime)
+
+	if v := r.FormValue("percentage"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			*percentage = &f
+		}
+	}
+	if v := r.FormValue("lift_id"); v != "" {
+		if id, err := uuid.Parse(v); err == nil {
+			*liftId = &id
+		}
+	}
 }

@@ -29,7 +29,7 @@
 
 <input type="checkbox" id="create-workout-modal" class="modal-toggle" />
 <div class="modal">
-    <div class="modal-box">
+    <div class="modal-box max-w-xl">
         <h3 class="font-bold text-lg">Add New Workout</h3>
         <form method="POST" action="/workouts" class="space-y-4 mt-4">
             <div class="form-control">
@@ -38,7 +38,7 @@
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered">
+                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'create-lifting-fields')">
                     {{range .WorkoutTypes}}
                     <option value="{{.}}">{{.}}</option>
                     {{end}}
@@ -63,6 +63,36 @@
                     <input type="number" name="interval_seconds" class="input input-bordered input-sm" />
                 </div>
             </div>
+            <div id="create-lifting-fields" class="space-y-3 border-l-2 border-primary/40 pl-3 hidden">
+                <p class="text-sm font-semibold text-base-content/70">Lifting portion</p>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Lift</span></label>
+                    <select name="lift_id" class="select select-bordered select-sm">
+                        <option value="">(none)</option>
+                        {{range .Lifts}}
+                        <option value="{{.Id}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Sets</span></label>
+                        <input type="number" name="sets" class="input input-bordered input-sm" min="0" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Reps</span></label>
+                        <input type="number" name="reps" class="input input-bordered input-sm" min="0" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Time (sec)</span></label>
+                        <input type="number" name="work_time_seconds" class="input input-bordered input-sm" min="0" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">% 1RM</span></label>
+                        <input type="number" name="percentage" class="input input-bordered input-sm" step="0.5" min="0" max="200" />
+                    </div>
+                </div>
+            </div>
             <div class="modal-action">
                 <label for="create-workout-modal" class="btn">Cancel</label>
                 <button type="submit" class="btn btn-secondary">Create</button>
@@ -71,5 +101,17 @@
     </div>
     <label class="modal-backdrop" for="create-workout-modal"></label>
 </div>
+
+<script>
+function toggleLiftingFields(select, targetId) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    if (select.value === 'lifting') {
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+</script>
 {{template "tail" .}}
 {{end}}

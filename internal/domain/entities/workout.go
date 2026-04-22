@@ -15,13 +15,14 @@ const (
 	WorkoutTypeEMOM    WorkoutType = "emom"
 	WorkoutTypeTabata  WorkoutType = "tabata"
 	WorkoutTypeChipper WorkoutType = "chipper"
+	WorkoutTypeLifting WorkoutType = "lifting"
 	WorkoutTypeCustom  WorkoutType = "custom"
 )
 
 func ValidWorkoutTypes() []WorkoutType {
 	return []WorkoutType{
 		WorkoutTypeAMRAP, WorkoutTypeForTime, WorkoutTypeEMOM,
-		WorkoutTypeTabata, WorkoutTypeChipper, WorkoutTypeCustom,
+		WorkoutTypeTabata, WorkoutTypeChipper, WorkoutTypeLifting, WorkoutTypeCustom,
 	}
 }
 
@@ -34,6 +35,12 @@ type Workout struct {
 	TimeCap         *int
 	Rounds          *int
 	IntervalSeconds *int
+	// Lifting-specific fields (only meaningful when Type == WorkoutTypeLifting).
+	LiftId          *uuid.UUID
+	Sets            *int
+	Reps            *int
+	WorkTimeSeconds *int
+	Percentage      *float64
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	DeletedAt       *time.Time
@@ -55,6 +62,9 @@ func (w *Workout) validate() error {
 	}
 	if !valid {
 		return errors.New("invalid workout type")
+	}
+	if w.Percentage != nil && (*w.Percentage < 0 || *w.Percentage > 200) {
+		return errors.New("percentage must be between 0 and 200")
 	}
 	return nil
 }

@@ -1,0 +1,78 @@
+{{define "sessions.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold">Sessions</h1>
+        <label for="create-session-modal" class="btn btn-accent">Add Session</label>
+    </div>
+
+    {{if .Sessions}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range .Sessions}}
+        <a href="/sessions/{{.Id}}" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+            <div class="card-body">
+                <h2 class="card-title">{{.Name}}</h2>
+                <div class="flex flex-wrap gap-2">
+                    <span class="badge badge-accent">{{len .Workouts}} workouts</span>
+                    {{if .TotalTimeMinutes}}
+                    <span class="badge badge-outline">{{derefInt .TotalTimeMinutes}} min</span>
+                    {{end}}
+                </div>
+                {{if .Warmup}}
+                <p class="text-sm text-base-content/70 mt-2 line-clamp-2">{{.Warmup}}</p>
+                {{end}}
+            </div>
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="text-center py-12">
+        <p class="text-lg text-base-content/50">No sessions yet. Group some workouts together into a session to get started.</p>
+    </div>
+    {{end}}
+</div>
+
+<input type="checkbox" id="create-session-modal" class="modal-toggle" />
+<div class="modal">
+    <div class="modal-box max-w-xl">
+        <h3 class="font-bold text-lg">Add New Session</h3>
+        <form method="POST" action="/sessions" class="space-y-4 mt-4">
+            <div class="form-control">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Monday Strength + Conditioning" required />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Warmup</span></label>
+                <textarea name="warmup" class="textarea textarea-bordered" rows="3"
+                    placeholder="5 min row&#10;Shoulder mobility&#10;2 x 10 banded pull-aparts"></textarea>
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Total Time (minutes)</span></label>
+                <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0" />
+            </div>
+            <div class="form-control">
+                <label class="label"><span class="label-text">Workouts (in order)</span></label>
+                {{if .Workouts}}
+                <div class="max-h-60 overflow-y-auto border border-base-300 rounded p-2 space-y-1">
+                    {{range .Workouts}}
+                    <label class="label cursor-pointer justify-start gap-3 py-1">
+                        <input type="checkbox" name="workout_ids" value="{{.Id}}" class="checkbox checkbox-sm" />
+                        <span class="label-text">{{.Name}} <span class="badge badge-ghost badge-sm">{{.Type}}</span></span>
+                    </label>
+                    {{end}}
+                </div>
+                <p class="text-xs text-base-content/50 mt-1">Order is determined by how they appear in this list.</p>
+                {{else}}
+                <p class="text-sm text-base-content/50">You have no workouts yet. <a href="/workouts" class="link">Create one first</a>.</p>
+                {{end}}
+            </div>
+            <div class="modal-action">
+                <label for="create-session-modal" class="btn">Cancel</label>
+                <button type="submit" class="btn btn-accent" {{if not .Workouts}}disabled{{end}}>Create</button>
+            </div>
+        </form>
+    </div>
+    <label class="modal-backdrop" for="create-session-modal"></label>
+</div>
+{{template "tail" .}}
+{{end}}

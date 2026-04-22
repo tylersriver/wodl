@@ -4,11 +4,12 @@
     <div class="flex gap-3">
         <label for="create-lift-modal" class="btn btn-primary btn-sm">+ Lift</label>
         <label for="create-workout-modal" class="btn btn-secondary btn-sm">+ Workout</label>
+        <a href="/sessions" class="btn btn-accent btn-sm">+ Session</a>
     </div>
     <h1 class="text-4xl font-bold">WODL</h1>
-    <p class="text-base-content/60">Search your lifts and workouts</p>
+    <p class="text-base-content/60">Search your lifts, workouts, and sessions</p>
     <div class="w-full max-w-lg">
-        <input type="text" name="q" placeholder="Search lifts & workouts..."
+        <input type="text" name="q" placeholder="Search lifts, workouts & sessions..."
             class="input input-bordered input-lg w-full"
             hx-get="/api/search"
             hx-trigger="input changed delay:200ms, search"

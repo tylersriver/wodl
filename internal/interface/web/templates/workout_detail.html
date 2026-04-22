@@ -15,16 +15,36 @@
         </div>
     </div>
 
-    {{if .Workout.Description}}
+    {{if or .Workout.Description .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds (eq .Workout.Type "lifting")}}
     <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
             <h2 class="card-title">Prescription</h2>
+            {{if .Workout.Description}}
             <pre class="whitespace-pre-wrap text-sm">{{.Workout.Description}}</pre>
-            <div class="flex gap-4 mt-2 text-sm text-base-content/70">
+            {{end}}
+            <div class="flex flex-wrap gap-4 mt-2 text-sm text-base-content/70">
                 {{if .Workout.TimeCap}}<span>Time Cap: {{derefInt .Workout.TimeCap}}s</span>{{end}}
                 {{if .Workout.Rounds}}<span>Rounds: {{derefInt .Workout.Rounds}}</span>{{end}}
                 {{if .Workout.IntervalSeconds}}<span>Interval: {{derefInt .Workout.IntervalSeconds}}s</span>{{end}}
             </div>
+            {{if eq .Workout.Type "lifting"}}
+            <div class="divider my-2"></div>
+            <p class="text-sm font-semibold">Lifting</p>
+            <div class="flex flex-wrap gap-4 text-sm text-base-content/70">
+                {{if .Workout.LiftId}}
+                    {{$liftIdStr := printf "%s" .Workout.LiftId}}
+                    {{range $.Lifts}}
+                        {{if eq .Id.String $liftIdStr}}
+                            <a href="/lifts/{{.Id}}" class="link">{{.Name}}</a>
+                        {{end}}
+                    {{end}}
+                {{end}}
+                {{if .Workout.Sets}}<span>Sets: {{derefInt .Workout.Sets}}</span>{{end}}
+                {{if .Workout.Reps}}<span>Reps: {{derefInt .Workout.Reps}}</span>{{end}}
+                {{if .Workout.WorkTimeSeconds}}<span>Work: {{derefInt .Workout.WorkTimeSeconds}}s</span>{{end}}
+                {{if .Workout.Percentage}}<span>% 1RM: {{printf "%.1f" (deref .Workout.Percentage)}}%</span>{{end}}
+            </div>
+            {{end}}
         </div>
     </div>
     {{end}}
@@ -98,7 +118,7 @@
 
 <input type="checkbox" id="edit-workout-modal" class="modal-toggle" />
 <div class="modal">
-    <div class="modal-box">
+    <div class="modal-box max-w-xl">
         <h3 class="font-bold text-lg">Edit Workout</h3>
         <form method="POST" action="/workouts/{{.Workout.Id}}" class="space-y-4 mt-4">
             <input type="hidden" name="_method" value="PUT" />
@@ -108,7 +128,7 @@
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered">
+                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'edit-lifting-fields')">
                     {{range $.WorkoutTypes}}
                     <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{.}}</option>
                     {{end}}
@@ -135,6 +155,42 @@
                         {{if .Workout.IntervalSeconds}}value="{{derefInt .Workout.IntervalSeconds}}"{{end}} />
                 </div>
             </div>
+            <div id="edit-lifting-fields" class="space-y-3 border-l-2 border-primary/40 pl-3 {{if ne .Workout.Type "lifting"}}hidden{{end}}">
+                <p class="text-sm font-semibold text-base-content/70">Lifting portion</p>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Lift</span></label>
+                    <select name="lift_id" class="select select-bordered select-sm">
+                        <option value="">(none)</option>
+                        {{$current := ""}}
+                        {{if .Workout.LiftId}}{{$current = printf "%s" .Workout.LiftId}}{{end}}
+                        {{range $.Lifts}}
+                        <option value="{{.Id}}" {{if eq .Id.String $current}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Sets</span></label>
+                        <input type="number" name="sets" class="input input-bordered input-sm" min="0"
+                            {{if .Workout.Sets}}value="{{derefInt .Workout.Sets}}"{{end}} />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Reps</span></label>
+                        <input type="number" name="reps" class="input input-bordered input-sm" min="0"
+                            {{if .Workout.Reps}}value="{{derefInt .Workout.Reps}}"{{end}} />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Time (sec)</span></label>
+                        <input type="number" name="work_time_seconds" class="input input-bordered input-sm" min="0"
+                            {{if .Workout.WorkTimeSeconds}}value="{{derefInt .Workout.WorkTimeSeconds}}"{{end}} />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">% 1RM</span></label>
+                        <input type="number" name="percentage" class="input input-bordered input-sm" step="0.5" min="0" max="200"
+                            {{if .Workout.Percentage}}value="{{printf "%.1f" (deref .Workout.Percentage)}}"{{end}} />
+                    </div>
+                </div>
+            </div>
             <div class="modal-action">
                 <label for="edit-workout-modal" class="btn">Cancel</label>
                 <button type="submit" class="btn btn-secondary">Save</button>
@@ -143,5 +199,17 @@
     </div>
     <label class="modal-backdrop" for="edit-workout-modal"></label>
 </div>
+
+<script>
+function toggleLiftingFields(select, targetId) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    if (select.value === 'lifting') {
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+</script>
 {{template "tail" .}}
 {{end}}

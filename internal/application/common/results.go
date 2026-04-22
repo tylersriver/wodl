@@ -46,8 +46,24 @@ type WorkoutResult struct {
 	TimeCap         *int
 	Rounds          *int
 	IntervalSeconds *int
+	LiftId          *uuid.UUID
+	Sets            *int
+	Reps            *int
+	WorkTimeSeconds *int
+	Percentage      *float64
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+}
+
+type SessionResult struct {
+	Id               uuid.UUID
+	UserId           uuid.UUID
+	Name             string
+	Warmup           string
+	TotalTimeMinutes *int
+	Workouts         []*WorkoutResult
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type WorkoutResultResult struct {

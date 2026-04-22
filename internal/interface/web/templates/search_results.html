@@ -1,5 +1,5 @@
 {{define "search_results.html"}}
-{{if or .Lifts .Workouts}}
+{{if or .Lifts .Workouts .Sessions}}
 <div class="space-y-2">
     {{range .Lifts}}
     <a href="/lifts/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
@@ -21,6 +21,20 @@
                 <span class="font-semibold">{{.Name}}</span>
                 <span class="badge badge-secondary badge-sm ml-2">{{.Type}}</span>
             </div>
+        </div>
+    </a>
+    {{end}}
+    {{range .Sessions}}
+    <a href="/sessions/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
+        <div class="card-body p-4 flex-row items-center justify-between">
+            <div>
+                <span class="font-semibold">{{.Name}}</span>
+                <span class="badge badge-accent badge-sm ml-2">session</span>
+                <span class="badge badge-ghost badge-sm ml-1">{{len .Workouts}} workouts</span>
+            </div>
+            {{if .TotalTimeMinutes}}
+            <span class="text-sm text-base-content/60">{{derefInt .TotalTimeMinutes}} min</span>
+            {{end}}
         </div>
     </a>
     {{end}}

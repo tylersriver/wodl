@@ -22,6 +22,11 @@ func NewWorkoutService(workoutRepo repositories.WorkoutRepository, workoutResult
 func (s *WorkoutService) CreateWorkout(cmd *command.CreateWorkoutCommand) (*command.CreateWorkoutCommandResult, error) {
 	w := entities.NewWorkout(cmd.UserId, cmd.Name, entities.WorkoutType(cmd.Type), cmd.Description,
 		cmd.TimeCap, cmd.Rounds, cmd.IntervalSeconds)
+	w.LiftId = cmd.LiftId
+	w.Sets = cmd.Sets
+	w.Reps = cmd.Reps
+	w.WorkTimeSeconds = cmd.WorkTimeSeconds
+	w.Percentage = cmd.Percentage
 	validated, err := entities.NewValidatedWorkout(w)
 	if err != nil {
 		return nil, err
@@ -53,6 +58,11 @@ func (s *WorkoutService) UpdateWorkout(cmd *command.UpdateWorkoutCommand) error 
 	w.TimeCap = cmd.TimeCap
 	w.Rounds = cmd.Rounds
 	w.IntervalSeconds = cmd.IntervalSeconds
+	w.LiftId = cmd.LiftId
+	w.Sets = cmd.Sets
+	w.Reps = cmd.Reps
+	w.WorkTimeSeconds = cmd.WorkTimeSeconds
+	w.Percentage = cmd.Percentage
 
 	validated, err := entities.NewValidatedWorkout(w)
 	if err != nil {

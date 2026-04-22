@@ -54,11 +54,13 @@ func main() {
 	liftLogRepo := sqlite.NewLiftLogRepository(db)
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
+	sessionRepo := sqlite.NewSessionRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -82,9 +84,10 @@ func main() {
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
-	workoutHandler := handlers.NewWorkoutHandler(workoutService, tmpl)
+	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -125,6 +128,12 @@ func main() {
 		r.Put("/workouts/{id}", workoutHandler.Update)
 		r.Delete("/workouts/{id}", workoutHandler.Delete)
 		r.Post("/workouts/{id}/results", workoutHandler.CreateResult)
+
+		r.Get("/sessions", sessionHandler.List)
+		r.Post("/sessions", sessionHandler.Create)
+		r.Get("/sessions/{id}", sessionHandler.Detail)
+		r.Put("/sessions/{id}", sessionHandler.Update)
+		r.Delete("/sessions/{id}", sessionHandler.Delete)
 
 		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
