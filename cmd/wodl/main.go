@@ -55,12 +55,13 @@ func main() {
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
 	sessionRepo := sqlite.NewSessionRepository(db)
+	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
-	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -135,6 +136,8 @@ func main() {
 		r.Get("/sessions/{id}", sessionHandler.Detail)
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
+		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
+		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
 
 		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)

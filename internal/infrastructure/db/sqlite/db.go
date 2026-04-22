@@ -90,6 +90,15 @@ CREATE TABLE IF NOT EXISTS session_workouts (
     PRIMARY KEY (session_id, position)
 );
 
+CREATE TABLE IF NOT EXISTS session_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    performed_at DATETIME NOT NULL,
+    notes TEXT,
+    created_at DATETIME NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_lifts_user_id ON lifts(user_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_lift_id ON lift_logs(lift_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_user_id ON lift_logs(user_id);
@@ -99,6 +108,9 @@ CREATE INDEX IF NOT EXISTS idx_workout_results_user_id ON workout_results(user_i
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_session_workouts_session_id ON session_workouts(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_workouts_workout_id ON session_workouts(workout_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_user_id ON session_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_session_id ON session_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_logs_performed_at ON session_logs(performed_at);
 `
 
 // workoutLiftingColumns adds the lifting-specific columns to the workouts table

@@ -91,6 +91,19 @@ func SessionToResult(s *entities.Session, workouts []*entities.Workout) *common.
 	}
 }
 
+func SessionLogToResult(l *entities.SessionLog) *common.SessionLogResult {
+	if l == nil {
+		return nil
+	}
+	return &common.SessionLogResult{
+		Id:          l.Id,
+		UserId:      l.UserId,
+		SessionId:   l.SessionId,
+		PerformedAt: l.PerformedAt,
+		Notes:       l.Notes,
+	}
+}
+
 func WorkoutResultToResult(wr *entities.WorkoutResult) *common.WorkoutResultResult {
 	if wr == nil {
 		return nil

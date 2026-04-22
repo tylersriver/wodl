@@ -1,6 +1,8 @@
 package query
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/common"
 )
@@ -80,4 +82,14 @@ type GetSessionByIdQuery struct {
 
 type GetSessionByIdQueryResult struct {
 	Session *common.SessionResult
+}
+
+type GetSessionLogsInRangeQuery struct {
+	UserId uuid.UUID
+	Start  time.Time
+	End    time.Time
+}
+
+type GetSessionLogsInRangeQueryResult struct {
+	Results []*common.SessionLogResult
 }

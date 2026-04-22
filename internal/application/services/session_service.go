@@ -12,12 +12,17 @@ import (
 )
 
 type SessionService struct {
-	sessionRepo repositories.SessionRepository
-	workoutRepo repositories.WorkoutRepository
+	sessionRepo    repositories.SessionRepository
+	workoutRepo    repositories.WorkoutRepository
+	sessionLogRepo repositories.SessionLogRepository
 }
 
-func NewSessionService(sessionRepo repositories.SessionRepository, workoutRepo repositories.WorkoutRepository) *SessionService {
-	return &SessionService{sessionRepo: sessionRepo, workoutRepo: workoutRepo}
+func NewSessionService(sessionRepo repositories.SessionRepository, workoutRepo repositories.WorkoutRepository, sessionLogRepo repositories.SessionLogRepository) *SessionService {
+	return &SessionService{
+		sessionRepo:    sessionRepo,
+		workoutRepo:    workoutRepo,
+		sessionLogRepo: sessionLogRepo,
+	}
 }
 
 func (s *SessionService) CreateSession(cmd *command.CreateSessionCommand) (*command.CreateSessionCommandResult, error) {
@@ -123,7 +128,72 @@ func (s *SessionService) GetSessionById(q *query.GetSessionByIdQuery) (*query.Ge
 		return nil, err
 	}
 
-	return &query.GetSessionByIdQueryResult{Session: mapper.SessionToResult(sess, workouts)}, nil
+	logs, err := s.sessionLogRepo.FindBySessionId(sess.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	result := mapper.SessionToResult(sess, workouts)
+	for _, l := range logs {
+		result.Logs = append(result.Logs, mapper.SessionLogToResult(l))
+	}
+
+	return &query.GetSessionByIdQueryResult{Session: result}, nil
+}
+
+func (s *SessionService) CreateSessionLog(cmd *command.CreateSessionLogCommand) (*command.CreateSessionLogCommandResult, error) {
+	sess, err := s.sessionRepo.FindById(cmd.SessionId)
+	if err != nil {
+		return nil, err
+	}
+	if sess == nil {
+		return nil, errors.New("session not found")
+	}
+	if sess.UserId != cmd.UserId {
+		return nil, errors.New("unauthorized")
+	}
+
+	log := entities.NewSessionLog(cmd.UserId, cmd.SessionId, cmd.PerformedAt, cmd.Notes)
+	validated, err := entities.NewValidatedSessionLog(log)
+	if err != nil {
+		return nil, err
+	}
+
+	created, err := s.sessionLogRepo.Create(validated)
+	if err != nil {
+		return nil, err
+	}
+
+	return &command.CreateSessionLogCommandResult{Result: mapper.SessionLogToResult(created)}, nil
+}
+
+func (s *SessionService) DeleteSessionLog(cmd *command.DeleteSessionLogCommand) error {
+	log, err := s.sessionLogRepo.FindById(cmd.Id)
+	if err != nil {
+		return err
+	}
+	if log == nil {
+		return errors.New("session log not found")
+	}
+	if log.UserId != cmd.UserId {
+		return errors.New("unauthorized")
+	}
+	return s.sessionLogRepo.Delete(cmd.Id)
+}
+
+func (s *SessionService) GetSessionLogsInRange(q *query.GetSessionLogsInRangeQuery) (*query.GetSessionLogsInRangeQueryResult, error) {
+	logs, err := s.sessionLogRepo.FindByUserInRange(q.UserId, q.Start, q.End)
+	if err != nil {
+		return nil, err
+	}
+
+	var result query.GetSessionLogsInRangeQueryResult
+	for _, lw := range logs {
+		r := mapper.SessionLogToResult(lw.Log)
+		r.SessionName = lw.SessionName
+		result.Results = append(result.Results, r)
+	}
+	return &result, nil
 }
 
 // ensureWorkoutsOwned verifies every workout id belongs to the given user; this
@@ -160,3 +230,4 @@ func (s *SessionService) loadWorkouts(ids []uuid.UUID) ([]*entities.Workout, err
 	}
 	return workouts, nil
 }
+

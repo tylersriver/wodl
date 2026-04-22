@@ -64,8 +64,18 @@ type SessionResult struct {
 	Date             *time.Time
 	TotalTimeMinutes *int
 	Workouts         []*WorkoutResult
+	Logs             []*SessionLogResult
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+}
+
+type SessionLogResult struct {
+	Id          uuid.UUID
+	UserId      uuid.UUID
+	SessionId   uuid.UUID
+	SessionName string
+	PerformedAt time.Time
+	Notes       string
 }
 
 type WorkoutResultResult struct {
