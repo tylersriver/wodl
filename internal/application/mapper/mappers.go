@@ -65,10 +65,6 @@ func WorkoutToResult(w *entities.Workout) *common.WorkoutResult {
 		Rounds:          w.Rounds,
 		IntervalSeconds: w.IntervalSeconds,
 		LiftId:          w.LiftId,
-		Sets:            w.Sets,
-		Reps:            w.Reps,
-		WorkTimeSeconds: w.WorkTimeSeconds,
-		Percentage:      w.Percentage,
 		CreatedAt:       w.CreatedAt,
 		UpdatedAt:       w.UpdatedAt,
 	}

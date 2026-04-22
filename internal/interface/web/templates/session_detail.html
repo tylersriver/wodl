@@ -33,21 +33,18 @@
         <div class="card-body">
             <h2 class="card-title">Workouts</h2>
             {{if .Session.Workouts}}
-            <ol class="space-y-2 list-decimal list-inside">
+            <ol class="space-y-4 list-decimal list-inside">
                 {{range .Session.Workouts}}
                 <li>
                     <a href="/workouts/{{.Id}}" class="link font-semibold">{{.Name}}</a>
                     <span class="badge badge-secondary badge-sm ml-2">{{.Type}}</span>
-                    {{if eq .Type "lifting"}}
-                    <div class="text-sm text-base-content/70 ml-6 mt-1 flex flex-wrap gap-3">
-                        {{if .Sets}}<span>Sets: {{derefInt .Sets}}</span>{{end}}
-                        {{if .Reps}}<span>Reps: {{derefInt .Reps}}</span>{{end}}
-                        {{if .WorkTimeSeconds}}<span>Work: {{derefInt .WorkTimeSeconds}}s</span>{{end}}
-                        {{if .Percentage}}<span>% 1RM: {{printf "%.1f" (deref .Percentage)}}%</span>{{end}}
-                    </div>
-                    {{end}}
                     {{if .Description}}
                     <pre class="whitespace-pre-wrap text-sm text-base-content/70 ml-6 mt-1">{{.Description}}</pre>
+                    {{end}}
+                    {{if eq .Type "lifting"}}
+                    <div class="ml-6 mt-2">
+                        {{template "lifting_prescription" .}}
+                    </div>
                     {{end}}
                 </li>
                 {{end}}

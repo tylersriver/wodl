@@ -54,10 +54,6 @@ CREATE TABLE IF NOT EXISTS workouts (
     rounds INTEGER,
     interval_seconds INTEGER,
     lift_id TEXT REFERENCES lifts(id),
-    sets INTEGER,
-    reps INTEGER,
-    work_time_seconds INTEGER,
-    percentage REAL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     deleted_at DATETIME
@@ -112,10 +108,6 @@ var workoutLiftingColumns = []struct {
 	ddl  string
 }{
 	{"lift_id", "ALTER TABLE workouts ADD COLUMN lift_id TEXT REFERENCES lifts(id)"},
-	{"sets", "ALTER TABLE workouts ADD COLUMN sets INTEGER"},
-	{"reps", "ALTER TABLE workouts ADD COLUMN reps INTEGER"},
-	{"work_time_seconds", "ALTER TABLE workouts ADD COLUMN work_time_seconds INTEGER"},
-	{"percentage", "ALTER TABLE workouts ADD COLUMN percentage REAL"},
 }
 
 func NewDB(dataSourceName string) (*sql.DB, error) {

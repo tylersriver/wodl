@@ -87,7 +87,7 @@ func main() {
 	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
 
 	// Router
 	r := chi.NewRouter()

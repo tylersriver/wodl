@@ -47,10 +47,11 @@ type WorkoutResult struct {
 	Rounds          *int
 	IntervalSeconds *int
 	LiftId          *uuid.UUID
-	Sets            *int
-	Reps            *int
-	WorkTimeSeconds *int
-	Percentage      *float64
+	// Lift and PercentageTable are populated at view time for lifting-type
+	// workouts so the template can render 1RM context without an extra fetch.
+	Lift            *LiftResult
+	PercentageTable map[int]float64
+	PctKeys         []int
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

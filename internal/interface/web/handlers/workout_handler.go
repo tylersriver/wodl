@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/command"
+	"github.com/tyler/wodl/internal/application/common"
 	"github.com/tyler/wodl/internal/application/query"
 	"github.com/tyler/wodl/internal/application/services"
 	"github.com/tyler/wodl/internal/domain/entities"
@@ -56,8 +57,7 @@ func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
-	applyWorkoutNumericFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds,
-		&cmd.Sets, &cmd.Reps, &cmd.WorkTimeSeconds, &cmd.Percentage, &cmd.LiftId)
+	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
 
 	_, err := h.workoutService.CreateWorkout(cmd)
 	if err != nil {
@@ -83,6 +83,7 @@ func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
+	enrichLiftingWorkout(result.Workout, h.liftService, userId)
 
 	data := map[string]interface{}{
 		"Workout":      result.Workout,
@@ -113,8 +114,7 @@ func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Type:        r.FormValue("type"),
 		Description: r.FormValue("description"),
 	}
-	applyWorkoutNumericFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds,
-		&cmd.Sets, &cmd.Reps, &cmd.WorkTimeSeconds, &cmd.Percentage, &cmd.LiftId)
+	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
 
 	if err := h.workoutService.UpdateWorkout(cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -172,10 +172,9 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
 }
 
-// applyWorkoutNumericFields parses all of the optional integer/float/uuid
-// lifting-related form fields off the request and assigns them to the target
-// pointers when present. Unset inputs leave the pointer nil.
-func applyWorkoutNumericFields(r *http.Request, timeCap, rounds, interval, sets, reps, workTime **int, percentage **float64, liftId **uuid.UUID) {
+// applyWorkoutFormFields parses the optional integer/uuid workout form fields
+// off the request and assigns them to the target pointers when present.
+func applyWorkoutFormFields(r *http.Request, timeCap, rounds, interval **int, liftId **uuid.UUID) {
 	parseInt := func(key string, dest **int) {
 		if v := r.FormValue(key); v != "" {
 			if n, err := strconv.Atoi(v); err == nil {
@@ -186,18 +185,34 @@ func applyWorkoutNumericFields(r *http.Request, timeCap, rounds, interval, sets,
 	parseInt("time_cap", timeCap)
 	parseInt("rounds", rounds)
 	parseInt("interval_seconds", interval)
-	parseInt("sets", sets)
-	parseInt("reps", reps)
-	parseInt("work_time_seconds", workTime)
 
-	if v := r.FormValue("percentage"); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			*percentage = &f
-		}
-	}
 	if v := r.FormValue("lift_id"); v != "" {
 		if id, err := uuid.Parse(v); err == nil {
 			*liftId = &id
 		}
 	}
+}
+
+// enrichLiftingWorkout fetches the linked Lift for a lifting-type workout and
+// populates its 1RM percentage table on the result so templates can render
+// them without extra lookups.
+func enrichLiftingWorkout(wr *common.WorkoutResult, liftService *services.LiftService, userId uuid.UUID) {
+	if wr == nil || wr.Type != string(entities.WorkoutTypeLifting) || wr.LiftId == nil {
+		return
+	}
+	result, err := liftService.GetLiftById(&query.GetLiftByIdQuery{Id: *wr.LiftId, UserId: userId})
+	if err != nil || result == nil {
+		return
+	}
+	wr.Lift = result.Lift
+	if len(result.PercentageTable) == 0 {
+		return
+	}
+	wr.PercentageTable = result.PercentageTable
+	keys := make([]int, 0, len(result.PercentageTable))
+	for k := range result.PercentageTable {
+		keys = append(keys, k)
+	}
+	sortInts(keys)
+	wr.PctKeys = keys
 }

@@ -17,13 +17,15 @@ import (
 type SessionHandler struct {
 	sessionService *services.SessionService
 	workoutService *services.WorkoutService
+	liftService    *services.LiftService
 	templates      *template.Template
 }
 
-func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, templates *template.Template) *SessionHandler {
+func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template) *SessionHandler {
 	return &SessionHandler{
 		sessionService: sessionService,
 		workoutService: workoutService,
+		liftService:    liftService,
 		templates:      templates,
 	}
 }
@@ -86,6 +88,12 @@ func (h *SessionHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
+	}
+
+	if result.Session != nil {
+		for _, wr := range result.Session.Workouts {
+			enrichLiftingWorkout(wr, h.liftService, userId)
+		}
 	}
 
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})

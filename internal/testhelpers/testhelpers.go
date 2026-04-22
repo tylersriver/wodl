@@ -71,7 +71,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
 
 	r := chi.NewRouter()
 	r.Use(methodOverride)

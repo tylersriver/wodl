@@ -35,15 +35,12 @@ type Workout struct {
 	TimeCap         *int
 	Rounds          *int
 	IntervalSeconds *int
-	// Lifting-specific fields (only meaningful when Type == WorkoutTypeLifting).
-	LiftId          *uuid.UUID
-	Sets            *int
-	Reps            *int
-	WorkTimeSeconds *int
-	Percentage      *float64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	DeletedAt       *time.Time
+	// LiftId links a lifting-type workout to a Lift so its 1RM and
+	// percentage table can be surfaced at view time.
+	LiftId    *uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 func (w *Workout) validate() error {
@@ -62,9 +59,6 @@ func (w *Workout) validate() error {
 	}
 	if !valid {
 		return errors.New("invalid workout type")
-	}
-	if w.Percentage != nil && (*w.Percentage < 0 || *w.Percentage > 200) {
-		return errors.New("percentage must be between 0 and 200")
 	}
 	return nil
 }

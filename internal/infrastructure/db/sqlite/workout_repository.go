@@ -25,11 +25,11 @@ func (r *WorkoutRepository) Create(w *entities.ValidatedWorkout) (*entities.Work
 	}
 	_, err := r.db.Exec(
 		`INSERT INTO workouts (id, user_id, name, type, description, time_cap, rounds, interval_seconds,
-		 lift_id, sets, reps, work_time_seconds, percentage, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 lift_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		w.Id.String(), w.UserId.String(), w.Name, string(w.Type), w.Description,
 		w.TimeCap, w.Rounds, w.IntervalSeconds,
-		liftIdStr, w.Sets, w.Reps, w.WorkTimeSeconds, w.Percentage,
+		liftIdStr,
 		w.CreatedAt, w.UpdatedAt,
 	)
 	if err != nil {
@@ -42,7 +42,7 @@ func (r *WorkoutRepository) Create(w *entities.ValidatedWorkout) (*entities.Work
 func (r *WorkoutRepository) FindById(id uuid.UUID) (*entities.Workout, error) {
 	row := r.db.QueryRow(
 		`SELECT id, user_id, name, type, description, time_cap, rounds, interval_seconds,
-		 lift_id, sets, reps, work_time_seconds, percentage, created_at, updated_at, deleted_at
+		 lift_id, created_at, updated_at, deleted_at
 		 FROM workouts WHERE id = ? AND deleted_at IS NULL`, id.String(),
 	)
 	return r.scanWorkout(row)
@@ -51,7 +51,7 @@ func (r *WorkoutRepository) FindById(id uuid.UUID) (*entities.Workout, error) {
 func (r *WorkoutRepository) FindAllByUserId(userId uuid.UUID) ([]*entities.Workout, error) {
 	rows, err := r.db.Query(
 		`SELECT id, user_id, name, type, description, time_cap, rounds, interval_seconds,
-		 lift_id, sets, reps, work_time_seconds, percentage, created_at, updated_at, deleted_at
+		 lift_id, created_at, updated_at, deleted_at
 		 FROM workouts WHERE user_id = ? AND deleted_at IS NULL ORDER BY name`, userId.String(),
 	)
 	if err != nil {
@@ -78,10 +78,10 @@ func (r *WorkoutRepository) Update(w *entities.ValidatedWorkout) (*entities.Work
 	}
 	_, err := r.db.Exec(
 		`UPDATE workouts SET name = ?, type = ?, description = ?, time_cap = ?, rounds = ?, interval_seconds = ?,
-		 lift_id = ?, sets = ?, reps = ?, work_time_seconds = ?, percentage = ?, updated_at = ?
+		 lift_id = ?, updated_at = ?
 		 WHERE id = ? AND deleted_at IS NULL`,
 		w.Name, string(w.Type), w.Description, w.TimeCap, w.Rounds, w.IntervalSeconds,
-		liftIdStr, w.Sets, w.Reps, w.WorkTimeSeconds, w.Percentage,
+		liftIdStr,
 		w.UpdatedAt, w.Id.String(),
 	)
 	if err != nil {
@@ -108,7 +108,7 @@ func (r *WorkoutRepository) scanWorkout(row *sql.Row) (*entities.Workout, error)
 	var liftIdStr sql.NullString
 	err := row.Scan(&idStr, &userIdStr, &w.Name, &wType, &w.Description,
 		&w.TimeCap, &w.Rounds, &w.IntervalSeconds,
-		&liftIdStr, &w.Sets, &w.Reps, &w.WorkTimeSeconds, &w.Percentage,
+		&liftIdStr,
 		&w.CreatedAt, &w.UpdatedAt, &w.DeletedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -133,7 +133,7 @@ func (r *WorkoutRepository) scanWorkoutRow(rows *sql.Rows) (*entities.Workout, e
 	var liftIdStr sql.NullString
 	err := rows.Scan(&idStr, &userIdStr, &w.Name, &wType, &w.Description,
 		&w.TimeCap, &w.Rounds, &w.IntervalSeconds,
-		&liftIdStr, &w.Sets, &w.Reps, &w.WorkTimeSeconds, &w.Percentage,
+		&liftIdStr,
 		&w.CreatedAt, &w.UpdatedAt, &w.DeletedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scanning workout row: %w", err)
