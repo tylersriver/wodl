@@ -10,20 +10,19 @@ import (
 
 type JWTService struct {
 	secretKey []byte
-	expiry    time.Duration
 }
 
 func NewJWTService(secretKey string) *JWTService {
 	return &JWTService{
 		secretKey: []byte(secretKey),
-		expiry:    24 * time.Hour,
 	}
 }
 
+// GenerateToken mints a token that does not expire. Session lifetime is
+// bounded only by the HttpOnly cookie MaxAge the login handler sets.
 func (s *JWTService) GenerateToken(userId uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": userId.String(),
-		"exp": time.Now().Add(s.expiry).Unix(),
 		"iat": time.Now().Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

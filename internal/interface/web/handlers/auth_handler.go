@@ -9,6 +9,11 @@ import (
 	"github.com/tyler/wodl/internal/application/services"
 )
 
+// sessionCookieMaxAge is the cookie lifetime in seconds. Modern browsers cap
+// cookie lifetime at ~400 days regardless of what we set, so this is the
+// practical ceiling for a "never expires" session.
+const sessionCookieMaxAge = 400 * 24 * 60 * 60
+
 type AuthHandler struct {
 	authService *services.AuthService
 	templates   *template.Template
@@ -45,7 +50,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400,
+		MaxAge:   sessionCookieMaxAge,
 	})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -76,7 +81,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400,
+		MaxAge:   sessionCookieMaxAge,
 	})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
