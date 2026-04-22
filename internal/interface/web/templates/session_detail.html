@@ -32,6 +32,44 @@
     </div>
     {{end}}
 
+    <div class="space-y-3">
+        <h2 class="text-xl font-bold">Workouts</h2>
+        {{if .Session.Workouts}}
+        <div class="space-y-3">
+            {{range $i, $w := .Session.Workouts}}
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <div class="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                            <span class="text-xs uppercase tracking-wide text-base-content/50">Step {{inc $i}}</span>
+                            <h3 class="card-title">
+                                <a href="/workouts/{{$w.Id}}" class="link">{{$w.Name}}</a>
+                            </h3>
+                            <span class="badge badge-secondary badge-sm">{{$w.Type}}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
+                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}} min</span>{{end}}
+                            {{if $w.Rounds}}<span>Rounds: {{derefInt $w.Rounds}}</span>{{end}}
+                            {{if $w.IntervalSeconds}}<span>Interval: {{derefInt $w.IntervalSeconds}}s</span>{{end}}
+                        </div>
+                    </div>
+                    {{if $w.Description}}
+                    <pre class="whitespace-pre-wrap text-sm text-base-content/80 mt-1">{{$w.Description}}</pre>
+                    {{end}}
+                    {{if eq $w.Type "lifting"}}
+                    <div class="mt-2">
+                        {{template "lifting_prescription" $w}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-sm text-base-content/50">No workouts in this session.</p>
+        {{end}}
+    </div>
+
     <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
             <h2 class="card-title">Log Completion</h2>
@@ -82,44 +120,6 @@
         </div>
     </div>
     {{end}}
-
-    <div class="space-y-3">
-        <h2 class="text-xl font-bold">Workouts</h2>
-        {{if .Session.Workouts}}
-        <div class="space-y-3">
-            {{range $i, $w := .Session.Workouts}}
-            <div class="card bg-base-100 shadow-md">
-                <div class="card-body">
-                    <div class="flex items-start justify-between gap-2 flex-wrap">
-                        <div>
-                            <span class="text-xs uppercase tracking-wide text-base-content/50">Step {{inc $i}}</span>
-                            <h3 class="card-title">
-                                <a href="/workouts/{{$w.Id}}" class="link">{{$w.Name}}</a>
-                            </h3>
-                            <span class="badge badge-secondary badge-sm">{{$w.Type}}</span>
-                        </div>
-                        <div class="flex flex-wrap gap-2 text-xs text-base-content/60">
-                            {{if $w.TimeCap}}<span>Cap: {{derefInt $w.TimeCap}} min</span>{{end}}
-                            {{if $w.Rounds}}<span>Rounds: {{derefInt $w.Rounds}}</span>{{end}}
-                            {{if $w.IntervalSeconds}}<span>Interval: {{derefInt $w.IntervalSeconds}}s</span>{{end}}
-                        </div>
-                    </div>
-                    {{if $w.Description}}
-                    <pre class="whitespace-pre-wrap text-sm text-base-content/80 mt-1">{{$w.Description}}</pre>
-                    {{end}}
-                    {{if eq $w.Type "lifting"}}
-                    <div class="mt-2">
-                        {{template "lifting_prescription" $w}}
-                    </div>
-                    {{end}}
-                </div>
-            </div>
-            {{end}}
-        </div>
-        {{else}}
-        <p class="text-sm text-base-content/50">No workouts in this session.</p>
-        {{end}}
-    </div>
 </div>
 
 <input type="checkbox" id="edit-session-modal" class="modal-toggle" />
