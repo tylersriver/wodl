@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -63,6 +64,20 @@ func NewTestApp(t *testing.T) *TestApp {
 			return *i
 		},
 		"inc": func(i int) int { return i + 1 },
+		"dict": func(values ...interface{}) (map[string]interface{}, error) {
+			if len(values)%2 != 0 {
+				return nil, fmt.Errorf("dict: odd args")
+			}
+			m := make(map[string]interface{}, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				k, ok := values[i].(string)
+				if !ok {
+					return nil, fmt.Errorf("dict: non-string key")
+				}
+				m[k] = values[i+1]
+			}
+			return m, nil
+		},
 	}
 
 	tmpl := template.Must(

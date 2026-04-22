@@ -47,6 +47,55 @@
 
 {{define "tail"}}
 </main>
+<script>
+// Attach click-ordered multi-select behaviour to any .workout-selector-root.
+// Each checkbox toggle pushes its workout id to an ordered list; that list
+// is re-emitted as hidden form inputs so the server receives ids in the
+// order the user selected them. Numeric badges reflect the 1-based position.
+document.querySelectorAll('.workout-selector-root').forEach(function (root) {
+    var ids = document.getElementById(root.dataset.idsContainer);
+    if (!ids) return;
+    var validIds = new Set();
+    root.querySelectorAll('input[type=checkbox][data-workout-id]').forEach(function (cb) {
+        validIds.add(cb.dataset.workoutId);
+    });
+    var order = (root.dataset.initial || '').split(',').filter(function (id) {
+        return id && validIds.has(id);
+    });
+
+    function render() {
+        ids.innerHTML = '';
+        order.forEach(function (id) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'workout_ids';
+            input.value = id;
+            ids.appendChild(input);
+        });
+        root.querySelectorAll('input[type=checkbox][data-workout-id]').forEach(function (cb) {
+            var idx = order.indexOf(cb.dataset.workoutId);
+            cb.checked = idx >= 0;
+            var badge = cb.parentElement.querySelector('.workout-order-badge');
+            if (badge) {
+                badge.textContent = idx >= 0 ? String(idx + 1) : '';
+                badge.classList.toggle('hidden', idx < 0);
+            }
+        });
+    }
+
+    root.addEventListener('change', function (e) {
+        var cb = e.target;
+        if (!cb.matches('input[type=checkbox][data-workout-id]')) return;
+        var id = cb.dataset.workoutId;
+        var pos = order.indexOf(id);
+        if (cb.checked && pos < 0) order.push(id);
+        if (!cb.checked && pos >= 0) order.splice(pos, 1);
+        render();
+    });
+
+    render();
+});
+</script>
 </body>
 </html>
 {{end}}

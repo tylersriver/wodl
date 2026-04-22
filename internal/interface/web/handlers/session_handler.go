@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -145,15 +146,22 @@ func (h *SessionHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
 
 	dateStr := ""
-	if result.Session != nil && result.Session.Date != nil {
-		dateStr = result.Session.Date.Format(sessionDateLayout)
+	orderedIds := make([]string, 0)
+	if result.Session != nil {
+		if result.Session.Date != nil {
+			dateStr = result.Session.Date.Format(sessionDateLayout)
+		}
+		for _, wr := range result.Session.Workouts {
+			orderedIds = append(orderedIds, wr.Id.String())
+		}
 	}
 
 	data := map[string]interface{}{
-		"Session":  result.Session,
-		"Workouts": nil,
-		"DateStr":  dateStr,
-		"Today":    time.Now().Format(sessionDateLayout),
+		"Session":         result.Session,
+		"Workouts":        nil,
+		"DateStr":         dateStr,
+		"Today":           time.Now().Format(sessionDateLayout),
+		"WorkoutOrderCSV": strings.Join(orderedIds, ","),
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results

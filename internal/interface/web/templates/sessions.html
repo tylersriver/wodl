@@ -46,22 +46,7 @@
                 <textarea name="warmup" class="textarea textarea-bordered" rows="3"
                     placeholder="5 min row&#10;Shoulder mobility&#10;2 x 10 banded pull-aparts"></textarea>
             </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Workouts (in order)</span></label>
-                {{if .Workouts}}
-                <div class="max-h-60 overflow-y-auto border border-base-300 rounded p-2 space-y-1">
-                    {{range .Workouts}}
-                    <label class="label cursor-pointer justify-start gap-3 py-1">
-                        <input type="checkbox" name="workout_ids" value="{{.Id}}" class="checkbox checkbox-sm" />
-                        <span class="label-text">{{.Name}} <span class="badge badge-ghost badge-sm">{{.Type}}</span></span>
-                    </label>
-                    {{end}}
-                </div>
-                <p class="text-xs text-base-content/50 mt-1">Order is determined by how they appear in this list.</p>
-                {{else}}
-                <p class="text-sm text-base-content/50">You have no workouts yet. <a href="/workouts" class="link">Create one first</a>.</p>
-                {{end}}
-            </div>
+            {{template "workout_selector" (dict "Prefix" "create" "Workouts" .Workouts "InitialOrderCSV" "")}}
             <div class="modal-action">
                 <label for="create-session-modal" class="btn">Cancel</label>
                 <button type="submit" class="btn btn-accent" {{if not .Workouts}}disabled{{end}}>Create</button>

@@ -147,21 +147,7 @@
                 <label class="label"><span class="label-text">Warmup</span></label>
                 <textarea name="warmup" class="textarea textarea-bordered" rows="3">{{.Session.Warmup}}</textarea>
             </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Workouts (in order)</span></label>
-                <div class="max-h-60 overflow-y-auto border border-base-300 rounded p-2 space-y-1">
-                    {{$selected := .Session.Workouts}}
-                    {{range $.Workouts}}
-                    {{$w := .}}
-                    {{$isSelected := false}}
-                    {{range $selected}}{{if eq .Id $w.Id}}{{$isSelected = true}}{{end}}{{end}}
-                    <label class="label cursor-pointer justify-start gap-3 py-1">
-                        <input type="checkbox" name="workout_ids" value="{{$w.Id}}" class="checkbox checkbox-sm" {{if $isSelected}}checked{{end}} />
-                        <span class="label-text">{{$w.Name}} <span class="badge badge-ghost badge-sm">{{$w.Type}}</span></span>
-                    </label>
-                    {{end}}
-                </div>
-            </div>
+            {{template "workout_selector" (dict "Prefix" "edit" "Workouts" .Workouts "InitialOrderCSV" .WorkoutOrderCSV)}}
             <div class="modal-action">
                 <label for="edit-session-modal" class="btn">Cancel</label>
                 <button type="submit" class="btn btn-accent">Save</button>

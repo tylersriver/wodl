@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -77,7 +78,8 @@ func main() {
 			}
 			return *i
 		},
-		"inc": func(i int) int { return i + 1 },
+		"inc":  func(i int) int { return i + 1 },
+		"dict": dictFunc,
 	}
 
 	tmpl := template.Must(
@@ -147,6 +149,23 @@ func main() {
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// dictFunc builds a map from alternating key/value template args so partials
+// can be invoked with named fields — e.g. {{template "x" (dict "K" v)}}.
+func dictFunc(values ...interface{}) (map[string]interface{}, error) {
+	if len(values)%2 != 0 {
+		return nil, errors.New("dict: odd number of args")
+	}
+	m := make(map[string]interface{}, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		key, ok := values[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("dict: key must be string, got %T", values[i])
+		}
+		m[key] = values[i+1]
+	}
+	return m, nil
 }
 
 // methodOverride allows HTML forms to use PUT/DELETE via _method field.
