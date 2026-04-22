@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +17,8 @@ import (
 	"github.com/tyler/wodl/internal/domain/entities"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
 )
+
+const liftingTitleDateFormat = "Jan 2, 2006"
 
 type WorkoutHandler struct {
 	workoutService *services.WorkoutService
@@ -56,6 +60,7 @@ func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
 		"ScoreTypes":     entities.ValidScoreTypes(),
 		"Lifts":          nil,
 		"IncludeLifting": includeLifting,
+		"Today":          time.Now().Format("2006-01-02"),
 	}
 	if lifts != nil {
 		data["Lifts"] = lifts.Results
@@ -74,6 +79,15 @@ func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Description: r.FormValue("description"),
 	}
 	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
+
+	if cmd.Type == string(entities.WorkoutTypeLifting) {
+		name, err := h.deriveLiftingName(userId, cmd.LiftId, r.FormValue("date"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		cmd.Name = name
+	}
 
 	_, err := h.workoutService.CreateWorkout(cmd)
 	if err != nil {
@@ -107,6 +121,7 @@ func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"ScoreTypes":   entities.ValidScoreTypes(),
 		"Lifts":        nil,
+		"Today":        time.Now().Format("2006-01-02"),
 	}
 	if lifts != nil {
 		data["Lifts"] = lifts.Results
@@ -131,6 +146,15 @@ func (h *WorkoutHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Description: r.FormValue("description"),
 	}
 	applyWorkoutFormFields(r, &cmd.TimeCap, &cmd.Rounds, &cmd.IntervalSeconds, &cmd.LiftId)
+
+	if cmd.Type == string(entities.WorkoutTypeLifting) {
+		name, err := h.deriveLiftingName(userId, cmd.LiftId, r.FormValue("date"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		cmd.Name = name
+	}
 
 	if err := h.workoutService.UpdateWorkout(cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -186,6 +210,30 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
+}
+
+// deriveLiftingName auto-generates the title for a lifting-type workout so the
+// user doesn't have to pick one — "{LiftName} — {Date}". Requires both a lift
+// and a YYYY-MM-DD date.
+func (h *WorkoutHandler) deriveLiftingName(userId uuid.UUID, liftId *uuid.UUID, dateStr string) (string, error) {
+	if liftId == nil {
+		return "", errors.New("a lift is required for lifting workouts")
+	}
+	if dateStr == "" {
+		return "", errors.New("a date is required for lifting workouts")
+	}
+	date, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+	if err != nil {
+		return "", fmt.Errorf("invalid date: %w", err)
+	}
+	result, err := h.liftService.GetLiftById(&query.GetLiftByIdQuery{Id: *liftId, UserId: userId})
+	if err != nil {
+		return "", err
+	}
+	if result == nil || result.Lift == nil {
+		return "", errors.New("lift not found")
+	}
+	return fmt.Sprintf("%s — %s", result.Lift.Name, date.Format(liftingTitleDateFormat)), nil
 }
 
 // applyWorkoutFormFields parses the optional integer/uuid workout form fields

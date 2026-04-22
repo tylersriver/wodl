@@ -109,16 +109,35 @@
         <form method="POST" action="/workouts/{{.Workout.Id}}" class="space-y-4 mt-4">
             <input type="hidden" name="_method" value="PUT" />
             <div class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" value="{{.Workout.Name}}" required />
-            </div>
-            <div class="form-control">
                 <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'edit-lifting-fields')">
+                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'edit')">
                     {{range $.WorkoutTypes}}
                     <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{.}}</option>
                     {{end}}
                 </select>
+            </div>
+            <div id="edit-name-field" class="form-control {{if eq .Workout.Type "lifting"}}hidden{{end}}">
+                <label class="label"><span class="label-text">Name</span></label>
+                <input type="text" name="name" class="input input-bordered" value="{{.Workout.Name}}" />
+            </div>
+            <div id="edit-lifting-fields" class="border-l-2 border-primary/40 pl-3 space-y-3 {{if ne .Workout.Type "lifting"}}hidden{{end}}">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Lift</span></label>
+                    <select name="lift_id" class="select select-bordered select-sm">
+                        <option value="">(none)</option>
+                        {{$current := ""}}
+                        {{if .Workout.LiftId}}{{$current = printf "%s" .Workout.LiftId}}{{end}}
+                        {{range $.Lifts}}
+                        <option value="{{.Id}}" {{if eq .Id.String $current}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Date</span></label>
+                    <input type="date" name="date" class="input input-bordered input-sm"
+                        value="{{.Workout.CreatedAt.Format "2006-01-02"}}" />
+                    <p class="text-xs text-base-content/50 mt-1">Title is generated from the lift and date.</p>
+                </div>
             </div>
             <div class="form-control">
                 <label class="label"><span class="label-text">Description</span></label>
@@ -141,20 +160,6 @@
                         {{if .Workout.IntervalSeconds}}value="{{derefInt .Workout.IntervalSeconds}}"{{end}} />
                 </div>
             </div>
-            <div id="edit-lifting-fields" class="border-l-2 border-primary/40 pl-3 {{if ne .Workout.Type "lifting"}}hidden{{end}}">
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Lift</span></label>
-                    <select name="lift_id" class="select select-bordered select-sm">
-                        <option value="">(none)</option>
-                        {{$current := ""}}
-                        {{if .Workout.LiftId}}{{$current = printf "%s" .Workout.LiftId}}{{end}}
-                        {{range $.Lifts}}
-                        <option value="{{.Id}}" {{if eq .Id.String $current}}selected{{end}}>{{.Name}}</option>
-                        {{end}}
-                    </select>
-                    <p class="text-xs text-base-content/50 mt-1">Selecting a lift lets the workout show its 1RM and a percentage table.</p>
-                </div>
-            </div>
             <div class="modal-action">
                 <label for="edit-workout-modal" class="btn">Cancel</label>
                 <button type="submit" class="btn btn-secondary">Save</button>
@@ -165,14 +170,14 @@
 </div>
 
 <script>
-function toggleLiftingFields(select, targetId) {
-    var el = document.getElementById(targetId);
-    if (!el) return;
-    if (select.value === 'lifting') {
-        el.classList.remove('hidden');
-    } else {
-        el.classList.add('hidden');
-    }
+// toggleLiftingFields hides/shows the lift+date block and toggles the plain
+// name input when the user switches a workout to/from the "lifting" type.
+function toggleLiftingFields(select, prefix) {
+    var lifting = document.getElementById(prefix + '-lifting-fields');
+    var name = document.getElementById(prefix + '-name-field');
+    var isLifting = select.value === 'lifting';
+    if (lifting) lifting.classList.toggle('hidden', !isLifting);
+    if (name) name.classList.toggle('hidden', isLifting);
 }
 </script>
 {{template "tail" .}}
