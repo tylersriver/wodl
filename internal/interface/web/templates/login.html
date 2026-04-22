@@ -8,32 +8,32 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-base-200 flex items-center justify-center">
-    <div class="card w-96 bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h2 class="card-title text-2xl font-bold justify-center">WODL</h2>
-            <p class="text-center text-base-content/70">Log in to your account</p>
+<body class="min-h-screen bg-base-200 flex items-start sm:items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-sm">
+        <div class="space-y-4 sm:bg-base-100 sm:shadow-xl sm:rounded-box sm:p-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-bold">WODL</h2>
+                <p class="text-base-content/70 mt-1">Log in to your account</p>
+            </div>
             {{if .Error}}
-            <div class="alert alert-error mt-2">
+            <div class="alert alert-error">
                 <span>{{.Error}}</span>
             </div>
             {{end}}
-            <form method="POST" action="/login" class="space-y-4 mt-4">
+            <form method="POST" action="/login" class="space-y-4">
                 <div class="form-control">
                     <label class="label"><span class="label-text">Email</span></label>
-                    <input type="email" name="email" class="input input-bordered" required />
+                    <input type="email" name="email" class="input input-bordered" required autocomplete="email" />
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Password</span></label>
-                    <input type="password" name="password" class="input input-bordered" required />
-                </div>
+                {{template "password_field" (dict "Name" "password" "Autocomplete" "current-password")}}
                 <button type="submit" class="btn btn-primary w-full">Login</button>
             </form>
-            <p class="text-center mt-4">
+            <p class="text-center">
                 Don't have an account? <a href="/register" class="link link-primary">Register</a>
             </p>
         </div>
     </div>
+    {{template "password_reveal_script" .}}
 </body>
 </html>
 {{end}}
