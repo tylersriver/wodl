@@ -63,6 +63,7 @@ func main() {
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
 	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
+	quickLogService := services.NewQuickLogService(liftService, workoutService, sessionService)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -92,6 +93,7 @@ func main() {
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
 	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
+	quickLogHandler := handlers.NewQuickLogHandler(quickLogService, liftService, workoutService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -140,6 +142,9 @@ func main() {
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
 		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
 		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
+
+		r.Get("/quick-log", quickLogHandler.Page)
+		r.Post("/quick-log", quickLogHandler.Submit)
 
 		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
