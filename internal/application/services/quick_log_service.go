@@ -72,16 +72,20 @@ func (s *QuickLogService) QuickLogSession(cmd *command.QuickLogSessionCommand) (
 		metconName = name
 		workoutIds = append(workoutIds, workoutId)
 
-		_, err = s.workoutService.CreateWorkoutResult(&command.CreateWorkoutResultCommand{
-			UserId:    cmd.UserId,
-			WorkoutId: workoutId,
-			Score:     cmd.Metcon.Score,
-			ScoreType: cmd.Metcon.ScoreType,
-			Rx:        cmd.Metcon.Rx,
-			Notes:     cmd.Metcon.Notes,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("logging metcon result: %w", err)
+		// Score is optional — when blank, the workout is still attached to the
+		// session but no WorkoutResult is recorded.
+		if strings.TrimSpace(cmd.Metcon.Score) != "" {
+			_, err = s.workoutService.CreateWorkoutResult(&command.CreateWorkoutResultCommand{
+				UserId:    cmd.UserId,
+				WorkoutId: workoutId,
+				Score:     cmd.Metcon.Score,
+				ScoreType: cmd.Metcon.ScoreType,
+				Rx:        cmd.Metcon.Rx,
+				Notes:     cmd.Metcon.Notes,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("logging metcon result: %w", err)
+			}
 		}
 	}
 

@@ -162,12 +162,6 @@ func buildMetconSection(r *http.Request) (*command.QuickLogMetconSection, error)
 		Rx:        r.FormValue("metcon_rx") == "on",
 		Notes:     r.FormValue("metcon_notes"),
 	}
-	if section.Score == "" {
-		return nil, fmt.Errorf("score required")
-	}
-	if section.ScoreType == "" {
-		return nil, fmt.Errorf("score type required")
-	}
 
 	mode := r.FormValue("metcon_mode")
 	if mode == "new" {

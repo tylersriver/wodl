@@ -159,8 +159,8 @@
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div class="form-control">
-                                <label class="label"><span class="label-text">Time Cap (sec)</span></label>
-                                <input type="number" name="new_workout_time_cap" class="input input-bordered input-sm" />
+                                <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                                <input type="number" name="new_workout_time_cap" class="input input-bordered input-sm" min="0" />
                             </div>
                             <div class="form-control">
                                 <label class="label"><span class="label-text">Rounds</span></label>
@@ -177,7 +177,7 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="form-control sm:col-span-2">
-                            <label class="label"><span class="label-text">Score</span></label>
+                            <label class="label"><span class="label-text">Score (optional)</span></label>
                             <input type="text" name="metcon_score" class="input input-bordered input-sm" placeholder="e.g. 4:32 or 12 rounds + 5" />
                         </div>
                         <div class="form-control">
