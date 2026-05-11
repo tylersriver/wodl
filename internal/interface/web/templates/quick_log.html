@@ -1,0 +1,270 @@
+{{define "quick_log.html"}}
+{{template "head" .}}
+<div class="space-y-6">
+    <div>
+        <a href="/" class="btn btn-ghost btn-sm">&larr; Home</a>
+        <h1 class="text-3xl font-bold mt-2">Quick Log</h1>
+        <p class="text-base-content/60 text-sm">Log a CrossFit day in one shot — lift, metcon, and a session record together.</p>
+    </div>
+
+    <form method="POST" action="/quick-log" class="space-y-6">
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title">When</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Date</span></label>
+                        <input type="date" name="date" class="input input-bordered input-sm" value="{{.Today}}" required />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Total time (min, optional)</span></label>
+                        <input type="number" name="total_time_minutes" class="input input-bordered input-sm" min="0" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-lg quick-section" data-section="lift">
+            <div class="card-body">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <h2 class="card-title">Lift</h2>
+                    <label class="label cursor-pointer gap-2">
+                        <span class="label-text">Include</span>
+                        <input type="checkbox" name="include_lift" value="1" class="toggle toggle-primary toggle-sm quick-include" checked />
+                    </label>
+                </div>
+
+                <div class="quick-section-body space-y-3">
+                    <div role="tablist" class="tabs tabs-boxed quick-mode-tabs">
+                        <a role="tab" class="tab quick-mode-tab tab-active" data-mode="existing">Existing</a>
+                        <a role="tab" class="tab quick-mode-tab" data-mode="new">+ New lift</a>
+                    </div>
+                    <input type="hidden" name="lift_mode" value="existing" class="quick-mode-input" />
+
+                    <div class="quick-mode-pane" data-mode="existing">
+                        {{if .Lifts}}
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Lift</span></label>
+                            <select name="lift_id" class="select select-bordered select-sm">
+                                {{range .Lifts}}
+                                <option value="{{.Id}}">{{.Name}} ({{.Category}})</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        {{else}}
+                        <p class="text-sm text-base-content/60">You don't have any lifts yet — switch to <span class="font-semibold">+ New lift</span> to create one inline.</p>
+                        {{end}}
+                    </div>
+
+                    <div class="quick-mode-pane hidden" data-mode="new">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="form-control sm:col-span-2">
+                                <label class="label"><span class="label-text">Name</span></label>
+                                <input type="text" name="new_lift_name" class="input input-bordered input-sm" placeholder="e.g. Back Squat" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Category</span></label>
+                                <select name="new_lift_category" class="select select-bordered select-sm">
+                                    {{range .Categories}}
+                                    <option value="{{.}}">{{.}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Known 1RM (optional)</span></label>
+                            <input type="number" name="new_lift_one_rep_max" class="input input-bordered input-sm" step="0.5" min="0" />
+                        </div>
+                    </div>
+
+                    <div class="divider my-1"></div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Weight</span></label>
+                            <input type="number" name="lift_weight" class="input input-bordered input-sm" step="0.5" min="0" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Reps</span></label>
+                            <input type="number" name="lift_reps" class="input input-bordered input-sm" min="1" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Sets</span></label>
+                            <input type="number" name="lift_sets" class="input input-bordered input-sm" min="1" value="1" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">RPE</span></label>
+                            <input type="number" name="lift_rpe" class="input input-bordered input-sm" min="1" max="10" step="0.5" />
+                        </div>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Notes</span></label>
+                        <input type="text" name="lift_notes" class="input input-bordered input-sm" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-lg quick-section" data-section="metcon">
+            <div class="card-body">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <h2 class="card-title">Metcon</h2>
+                    <label class="label cursor-pointer gap-2">
+                        <span class="label-text">Include</span>
+                        <input type="checkbox" name="include_metcon" value="1" class="toggle toggle-secondary toggle-sm quick-include" checked />
+                    </label>
+                </div>
+
+                <div class="quick-section-body space-y-3">
+                    <div role="tablist" class="tabs tabs-boxed quick-mode-tabs">
+                        <a role="tab" class="tab quick-mode-tab tab-active" data-mode="existing">Existing</a>
+                        <a role="tab" class="tab quick-mode-tab" data-mode="new">+ New metcon</a>
+                    </div>
+                    <input type="hidden" name="metcon_mode" value="existing" class="quick-mode-input" />
+
+                    <div class="quick-mode-pane" data-mode="existing">
+                        {{if .Workouts}}
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Workout</span></label>
+                            <select name="workout_id" class="select select-bordered select-sm">
+                                {{range .Workouts}}
+                                <option value="{{.Id}}">{{.Name}} ({{.Type}})</option>
+                                {{end}}
+                            </select>
+                        </div>
+                        {{else}}
+                        <p class="text-sm text-base-content/60">You don't have any metcons yet — switch to <span class="font-semibold">+ New metcon</span> to create one inline.</p>
+                        {{end}}
+                    </div>
+
+                    <div class="quick-mode-pane hidden" data-mode="new">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="form-control sm:col-span-2">
+                                <label class="label"><span class="label-text">Name</span></label>
+                                <input type="text" name="new_workout_name" class="input input-bordered input-sm" placeholder="e.g. Fran" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Type</span></label>
+                                <select name="new_workout_type" class="select select-bordered select-sm">
+                                    {{range .WorkoutTypes}}
+                                    <option value="{{.}}">{{.}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Description</span></label>
+                            <textarea name="new_workout_description" class="textarea textarea-bordered" rows="3"
+                                placeholder="21-15-9&#10;Thrusters (95/65)&#10;Pull-ups"></textarea>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Time Cap (min)</span></label>
+                                <input type="number" name="new_workout_time_cap" class="input input-bordered input-sm" min="0" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Rounds</span></label>
+                                <input type="number" name="new_workout_rounds" class="input input-bordered input-sm" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Interval (sec)</span></label>
+                                <input type="number" name="new_workout_interval_seconds" class="input input-bordered input-sm" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="divider my-1"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="form-control sm:col-span-2">
+                            <label class="label"><span class="label-text">Score (optional)</span></label>
+                            <input type="text" name="metcon_score" class="input input-bordered input-sm" placeholder="e.g. 4:32 or 12 rounds + 5" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Score type</span></label>
+                            <select name="metcon_score_type" class="select select-bordered select-sm">
+                                {{range .ScoreTypes}}
+                                <option value="{{.}}">{{.}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <label class="label cursor-pointer gap-2">
+                            <input type="checkbox" name="metcon_rx" class="checkbox checkbox-sm" />
+                            <span class="label-text">Rx</span>
+                        </label>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Notes</span></label>
+                        <input type="text" name="metcon_notes" class="input input-bordered input-sm" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+                <h2 class="card-title">Session details (optional)</h2>
+                <p class="text-xs text-base-content/60">Leave name blank to auto-name from your lift + metcon.</p>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Session name</span></label>
+                    <input type="text" name="session_name" class="input input-bordered input-sm" placeholder="auto" />
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Warmup</span></label>
+                    <textarea name="warmup" class="textarea textarea-bordered" rows="2"></textarea>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Session notes</span></label>
+                    <input type="text" name="notes" class="input input-bordered input-sm" />
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="/" class="btn btn-ghost">Cancel</a>
+            <button type="submit" class="btn btn-primary">Log Session</button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Per-section behaviour:
+//   - Toggle the "Include" switch to collapse the section and stop submitting it.
+//   - Tabs swap between picking an existing entity and inline-creating one;
+//     a hidden input mirrors the active mode for the form payload.
+document.querySelectorAll('.quick-section').forEach(function (section) {
+    var include = section.querySelector('.quick-include');
+    var body = section.querySelector('.quick-section-body');
+    var tabs = section.querySelectorAll('.quick-mode-tab');
+    var modeInput = section.querySelector('.quick-mode-input');
+    var panes = section.querySelectorAll('.quick-mode-pane');
+
+    function applyInclude() {
+        body.classList.toggle('hidden', !include.checked);
+    }
+    function applyMode(mode) {
+        modeInput.value = mode;
+        tabs.forEach(function (t) {
+            t.classList.toggle('tab-active', t.dataset.mode === mode);
+        });
+        panes.forEach(function (p) {
+            p.classList.toggle('hidden', p.dataset.mode !== mode);
+        });
+    }
+
+    if (include) include.addEventListener('change', applyInclude);
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function (e) {
+            e.preventDefault();
+            applyMode(tab.dataset.mode);
+        });
+    });
+
+    applyInclude();
+    applyMode(modeInput.value || 'existing');
+});
+</script>
+{{template "tail" .}}
+{{end}}
