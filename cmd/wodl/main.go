@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/tyler/wodl/internal/infrastructure/db/sqlite"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
 	"github.com/tyler/wodl/internal/interface/web/handlers"
+	"github.com/tyler/wodl/internal/interface/web/static"
 	"github.com/tyler/wodl/internal/interface/web/templates"
 )
 
@@ -113,6 +115,15 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
+	// PWA assets — public so browsers can fetch them before login.
+	staticFS, err := fs.Sub(static.FS, ".")
+	if err != nil {
+		log.Fatalf("static fs: %v", err)
+	}
+	r.Handle("/static/*", http.StripPrefix("/static/", pwaFileServer(http.FS(staticFS))))
+	r.Get("/manifest.webmanifest", pwaAssetHandler(static.FS, "manifest.webmanifest", "application/manifest+json"))
+	r.Get("/sw.js", pwaAssetHandler(static.FS, "sw.js", "application/javascript"))
+
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(jwtService))
@@ -171,6 +182,37 @@ func dictFunc(values ...interface{}) (map[string]interface{}, error) {
 		m[key] = values[i+1]
 	}
 	return m, nil
+}
+
+// pwaAssetHandler serves a single embedded asset at its top-level URL. Used
+// for `/sw.js` and `/manifest.webmanifest`, which must live at the site root
+// so the service worker can claim the whole `/` scope.
+func pwaAssetHandler(efs fs.FS, name, contentType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data, err := fs.ReadFile(efs, name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "no-cache")
+		// Required so the service worker can control the entire site scope.
+		if name == "sw.js" {
+			w.Header().Set("Service-Worker-Allowed", "/")
+		}
+		w.Write(data)
+	}
+}
+
+// pwaFileServer wraps http.FileServer so 404s render as plain text rather than
+// the FileServer's HTML, which would otherwise be cached by the service worker
+// as a navigation fallback.
+func pwaFileServer(root http.FileSystem) http.Handler {
+	fileServer := http.FileServer(root)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		fileServer.ServeHTTP(w, r)
+	})
 }
 
 // methodOverride allows HTML forms to use PUT/DELETE via _method field.
