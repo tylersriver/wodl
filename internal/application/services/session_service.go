@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/command"
@@ -38,6 +39,21 @@ func (s *SessionService) CreateSession(cmd *command.CreateSessionCommand) (*comm
 
 	created, err := s.sessionRepo.Create(validated)
 	if err != nil {
+		return nil, err
+	}
+
+	// Creating a session implies it was performed, so seed an initial
+	// completion dated to the session's day (or today when no date was given).
+	performedAt := time.Now()
+	if created.Date != nil {
+		performedAt = *created.Date
+	}
+	log := entities.NewSessionLog(created.UserId, created.Id, performedAt, "")
+	validatedLog, err := entities.NewValidatedSessionLog(log)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.sessionLogRepo.Create(validatedLog); err != nil {
 		return nil, err
 	}
 
