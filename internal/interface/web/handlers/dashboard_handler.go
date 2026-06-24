@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/tyler/wodl/internal/application/common"
 	"github.com/tyler/wodl/internal/application/query"
@@ -51,6 +52,7 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"Sessions":      nil,
 		"Categories":    entities.ValidLiftCategories(),
 		"WorkoutTypes":  entities.ValidWorkoutTypes(),
+		"Today":         time.Now().Format("2006-01-02"),
 	}
 	if recentLogs != nil {
 		data["RecentLogs"] = recentLogs.Results
