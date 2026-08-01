@@ -43,12 +43,15 @@ func NewSessionHandler(sessionService *services.SessionService, workoutService *
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
+	// Week is the default: programming is planned a week at a time, so the
+	// question this page usually answers is "what's on for the next few days"
+	// rather than "everything I have ever planned".
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "calendar", "week":
+	case "calendar", "list":
 		// accepted
 	default:
-		view = "list"
+		view = "week"
 	}
 
 	sessions, err := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId})
