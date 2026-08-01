@@ -84,12 +84,14 @@ type GetSessionByIdQueryResult struct {
 	Session *common.SessionResult
 }
 
-type GetSessionLogsInRangeQuery struct {
+// GetSessionsInRangeQuery selects sessions dated within [Start, End), backing
+// the today, week and month views.
+type GetSessionsInRangeQuery struct {
 	UserId uuid.UUID
 	Start  time.Time
 	End    time.Time
 }
 
-type GetSessionLogsInRangeQueryResult struct {
-	Results []*common.SessionLogResult
+type GetSessionsInRangeQueryResult struct {
+	Results []*common.SessionResult
 }

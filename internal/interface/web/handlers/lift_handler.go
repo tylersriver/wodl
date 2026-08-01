@@ -24,20 +24,6 @@ func NewLiftHandler(liftService *services.LiftService, templates *template.Templ
 	return &LiftHandler{liftService: liftService, templates: templates}
 }
 
-func (h *LiftHandler) List(w http.ResponseWriter, r *http.Request) {
-	userId := middleware.GetUserID(r)
-	result, err := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	h.templates.ExecuteTemplate(w, "lifts.html", map[string]interface{}{
-		"Lifts":      result.Results,
-		"Categories": entities.ValidLiftCategories(),
-	})
-}
-
 func (h *LiftHandler) Create(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	userId := middleware.GetUserID(r)
@@ -63,7 +49,7 @@ func (h *LiftHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/lifts", http.StatusSeeOther)
+	http.Redirect(w, r, "/results?kind=lifts", http.StatusSeeOther)
 }
 
 func (h *LiftHandler) Detail(w http.ResponseWriter, r *http.Request) {
@@ -143,11 +129,11 @@ func (h *LiftHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", "/lifts")
+		w.Header().Set("HX-Redirect", "/results?kind=lifts")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	http.Redirect(w, r, "/lifts", http.StatusSeeOther)
+	http.Redirect(w, r, "/results?kind=lifts", http.StatusSeeOther)
 }
 
 func (h *LiftHandler) CreateLog(w http.ResponseWriter, r *http.Request) {

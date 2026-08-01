@@ -58,14 +58,12 @@ func main() {
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
 	sessionRepo := sqlite.NewSessionRepository(db)
-	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
-	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
-	quickLogService := services.NewQuickLogService(liftService, workoutService, sessionService)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 
 	// Templates
 	funcMap := template.FuncMap{
@@ -95,7 +93,6 @@ func main() {
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
 	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
-	quickLogHandler := handlers.NewQuickLogHandler(quickLogService, liftService, workoutService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -128,10 +125,17 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(jwtService))
 
-		r.Get("/", dashHandler.Dashboard)
+		// Today's assigned session is the landing page.
+		r.Get("/", dashHandler.Today)
 		r.Post("/logout", authHandler.Logout)
 
-		r.Get("/lifts", liftHandler.List)
+		// Lifts and workouts share one filterable list.
+		r.Get("/results", dashHandler.Results)
+
+		// The old separate index pages are now that combined list.
+		r.Get("/lifts", redirectTo("/results?kind=lifts"))
+		r.Get("/workouts", redirectTo("/results?kind=workouts"))
+
 		r.Post("/lifts", liftHandler.Create)
 		r.Get("/lifts/{id}", liftHandler.Detail)
 		r.Put("/lifts/{id}", liftHandler.Update)
@@ -139,7 +143,6 @@ func main() {
 		r.Post("/lifts/{id}/logs", liftHandler.CreateLog)
 		r.Delete("/lifts/{id}/logs/{logId}", liftHandler.DeleteLog)
 
-		r.Get("/workouts", workoutHandler.List)
 		r.Post("/workouts", workoutHandler.Create)
 		r.Get("/workouts/{id}", workoutHandler.Detail)
 		r.Put("/workouts/{id}", workoutHandler.Update)
@@ -151,13 +154,7 @@ func main() {
 		r.Get("/sessions/{id}", sessionHandler.Detail)
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
-		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
-		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
 
-		r.Get("/quick-log", quickLogHandler.Page)
-		r.Post("/quick-log", quickLogHandler.Submit)
-
-		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
 
@@ -182,6 +179,14 @@ func dictFunc(values ...interface{}) (map[string]interface{}, error) {
 		m[key] = values[i+1]
 	}
 	return m, nil
+}
+
+// redirectTo permanently forwards a route to another path, keeping old
+// bookmarks for /lifts and /workouts working now that both live under /results.
+func redirectTo(target string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	}
 }
 
 // pwaAssetHandler serves a single embedded asset at its top-level URL. Used

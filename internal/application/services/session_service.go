@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/command"
@@ -13,16 +12,14 @@ import (
 )
 
 type SessionService struct {
-	sessionRepo    repositories.SessionRepository
-	workoutRepo    repositories.WorkoutRepository
-	sessionLogRepo repositories.SessionLogRepository
+	sessionRepo repositories.SessionRepository
+	workoutRepo repositories.WorkoutRepository
 }
 
-func NewSessionService(sessionRepo repositories.SessionRepository, workoutRepo repositories.WorkoutRepository, sessionLogRepo repositories.SessionLogRepository) *SessionService {
+func NewSessionService(sessionRepo repositories.SessionRepository, workoutRepo repositories.WorkoutRepository) *SessionService {
 	return &SessionService{
-		sessionRepo:    sessionRepo,
-		workoutRepo:    workoutRepo,
-		sessionLogRepo: sessionLogRepo,
+		sessionRepo: sessionRepo,
+		workoutRepo: workoutRepo,
 	}
 }
 
@@ -39,21 +36,6 @@ func (s *SessionService) CreateSession(cmd *command.CreateSessionCommand) (*comm
 
 	created, err := s.sessionRepo.Create(validated)
 	if err != nil {
-		return nil, err
-	}
-
-	// Creating a session implies it was performed, so seed an initial
-	// completion dated to the session's day (or today when no date was given).
-	performedAt := time.Now()
-	if created.Date != nil {
-		performedAt = *created.Date
-	}
-	log := entities.NewSessionLog(created.UserId, created.Id, performedAt, "")
-	validatedLog, err := entities.NewValidatedSessionLog(log)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := s.sessionLogRepo.Create(validatedLog); err != nil {
 		return nil, err
 	}
 
@@ -144,70 +126,22 @@ func (s *SessionService) GetSessionById(q *query.GetSessionByIdQuery) (*query.Ge
 		return nil, err
 	}
 
-	logs, err := s.sessionLogRepo.FindBySessionId(sess.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	result := mapper.SessionToResult(sess, workouts)
-	for _, l := range logs {
-		result.Logs = append(result.Logs, mapper.SessionLogToResult(l))
-	}
-
-	return &query.GetSessionByIdQueryResult{Session: result}, nil
+	return &query.GetSessionByIdQueryResult{Session: mapper.SessionToResult(sess, workouts)}, nil
 }
 
-func (s *SessionService) CreateSessionLog(cmd *command.CreateSessionLogCommand) (*command.CreateSessionLogCommandResult, error) {
-	sess, err := s.sessionRepo.FindById(cmd.SessionId)
-	if err != nil {
-		return nil, err
-	}
-	if sess == nil {
-		return nil, errors.New("session not found")
-	}
-	if sess.UserId != cmd.UserId {
-		return nil, errors.New("unauthorized")
-	}
-
-	log := entities.NewSessionLog(cmd.UserId, cmd.SessionId, cmd.PerformedAt, cmd.Notes)
-	validated, err := entities.NewValidatedSessionLog(log)
+func (s *SessionService) GetSessionsInRange(q *query.GetSessionsInRangeQuery) (*query.GetSessionsInRangeQueryResult, error) {
+	sessions, err := s.sessionRepo.FindByUserInRange(q.UserId, q.Start, q.End)
 	if err != nil {
 		return nil, err
 	}
 
-	created, err := s.sessionLogRepo.Create(validated)
-	if err != nil {
-		return nil, err
-	}
-
-	return &command.CreateSessionLogCommandResult{Result: mapper.SessionLogToResult(created)}, nil
-}
-
-func (s *SessionService) DeleteSessionLog(cmd *command.DeleteSessionLogCommand) error {
-	log, err := s.sessionLogRepo.FindById(cmd.Id)
-	if err != nil {
-		return err
-	}
-	if log == nil {
-		return errors.New("session log not found")
-	}
-	if log.UserId != cmd.UserId {
-		return errors.New("unauthorized")
-	}
-	return s.sessionLogRepo.Delete(cmd.Id)
-}
-
-func (s *SessionService) GetSessionLogsInRange(q *query.GetSessionLogsInRangeQuery) (*query.GetSessionLogsInRangeQueryResult, error) {
-	logs, err := s.sessionLogRepo.FindByUserInRange(q.UserId, q.Start, q.End)
-	if err != nil {
-		return nil, err
-	}
-
-	var result query.GetSessionLogsInRangeQueryResult
-	for _, lw := range logs {
-		r := mapper.SessionLogToResult(lw.Log)
-		r.SessionName = lw.SessionName
-		result.Results = append(result.Results, r)
+	var result query.GetSessionsInRangeQueryResult
+	for _, sess := range sessions {
+		workouts, err := s.loadWorkouts(sess.WorkoutIds)
+		if err != nil {
+			return nil, err
+		}
+		result.Results = append(result.Results, mapper.SessionToResult(sess, workouts))
 	}
 	return &result, nil
 }

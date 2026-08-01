@@ -10,9 +10,7 @@
             <div class="flex flex-col gap-2">
                 <h1 class="text-2xl font-semibold tracking-tight">{{.Session.Name}}</h1>
                 <div class="flex flex-wrap gap-2">
-                    {{if .Session.Date}}
                     <span class="badge" data-variant="outline">{{.Session.Date.Format "Mon, Jan 2, 2006"}}</span>
-                    {{end}}
                     <span class="badge" data-variant="secondary">{{len .Session.Workouts}} workouts</span>
                     {{if .Session.TotalTimeMinutes}}
                     <span class="badge" data-variant="outline">{{derefInt .Session.TotalTimeMinutes}} min</span>
@@ -28,23 +26,6 @@
         </div>
     </div>
 
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">Mark this done</h2>
-        <form method="POST" action="/sessions/{{.Session.Id}}/logs" class="flex flex-col gap-4">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="field">
-                    <label for="performed-at">Date</label>
-                    <input type="date" id="performed-at" name="performed_at" value="{{.Today}}" required />
-                </div>
-                <div class="field">
-                    <label for="completion-notes">Notes <span class="text-muted-foreground font-normal">(optional)</span></label>
-                    <input type="text" id="completion-notes" name="notes" />
-                </div>
-            </div>
-            <button type="submit" class="btn w-full sm:w-fit" data-size="lg">Mark done</button>
-        </form>
-    </div>
-
     {{if .Session.Warmup}}
     <div class="card bg-card gap-3 rounded-xl border p-5">
         <h2 class="font-semibold">Warmup</h2>
@@ -57,55 +38,13 @@
         {{if .Session.Workouts}}
         <ol class="flex flex-col gap-3">
             {{range $i, $w := .Session.Workouts}}
-            <li class="card bg-card gap-3 rounded-xl border p-5">
-                <div class="flex flex-col gap-2">
-                    <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc $i}}</span>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <a href="/workouts/{{$w.Id}}" class="font-medium underline underline-offset-4">{{$w.Name}}</a>
-                        <span class="badge" data-variant="secondary">{{$w.Type}}</span>
-                    </div>
-                    {{if or $w.TimeCap $w.Rounds $w.IntervalSeconds}}
-                    <div class="flex flex-wrap gap-2">
-                        {{if $w.TimeCap}}<span class="badge" data-variant="outline">{{derefInt $w.TimeCap}} min cap</span>{{end}}
-                        {{if $w.Rounds}}<span class="badge" data-variant="outline">{{derefInt $w.Rounds}} rounds</span>{{end}}
-                        {{if $w.IntervalSeconds}}<span class="badge" data-variant="outline">{{derefInt $w.IntervalSeconds}}s interval</span>{{end}}
-                    </div>
-                    {{end}}
-                </div>
-                {{if $w.Description}}
-                <pre class="font-sans text-sm whitespace-pre-wrap">{{$w.Description}}</pre>
-                {{end}}
-                {{if eq $w.Type "lifting"}}
-                {{template "lifting_prescription" $w}}
-                {{end}}
-            </li>
+            {{template "session_workout_card" (dict "Index" $i "Workout" $w)}}
             {{end}}
         </ol>
         {{else}}
         <p class="text-muted-foreground text-sm">No workouts in this session.</p>
         {{end}}
     </div>
-
-    {{if .Session.Logs}}
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">Times you've done this</h2>
-        <ul class="flex flex-col gap-2">
-            {{range .Session.Logs}}
-            <li class="flex items-center justify-between gap-3 rounded-lg border p-3">
-                <span class="flex flex-col gap-0.5">
-                    <span class="text-sm font-medium">{{.PerformedAt.Format "Mon, Jan 2, 2006"}}</span>
-                    {{if .Notes}}<span class="text-muted-foreground text-sm">{{.Notes}}</span>{{end}}
-                </span>
-                <button type="button" class="btn shrink-0" data-variant="ghost" data-size="sm"
-                    hx-delete="/sessions/{{$.Session.Id}}/logs/{{.Id}}"
-                    hx-confirm="Delete this completion record?" aria-label="Delete completion">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
-            </li>
-            {{end}}
-        </ul>
-    </div>
-    {{end}}
 </div>
 
 <dialog id="edit-session-modal" class="dialog sheet" aria-labelledby="edit-session-title"
@@ -117,25 +56,23 @@
         </header>
         <section class="flex flex-col gap-4 overflow-y-auto px-6">
             <div class="field">
-                <label for="edit-session-name">Name</label>
-                <input type="text" id="edit-session-name" name="name" value="{{.Session.Name}}" required />
+                <label for="edit-session-date">Day</label>
+                <input type="date" id="edit-session-date" name="date" value="{{.DateStr}}" required />
             </div>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="field">
-                    <label for="edit-session-date">Date</label>
-                    <input type="date" id="edit-session-date" name="date" value="{{.DateStr}}" />
-                </div>
-                <div class="field">
-                    <label for="edit-session-time">Total time <span class="text-muted-foreground font-normal">(min)</span></label>
-                    <input type="number" id="edit-session-time" name="total_time_minutes" min="0" inputmode="numeric"
-                        {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
-                </div>
+            {{template "workout_selector" (dict "Prefix" "edit" "Workouts" .Workouts "InitialOrderCSV" .WorkoutOrderCSV)}}
+            <div class="field">
+                <label for="edit-session-name">Name</label>
+                <input type="text" id="edit-session-name" name="name" value="{{.Session.Name}}" />
+            </div>
+            <div class="field">
+                <label for="edit-session-time">How long it should take <span class="text-muted-foreground font-normal">(min)</span></label>
+                <input type="number" id="edit-session-time" name="total_time_minutes" min="0" inputmode="numeric"
+                    {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
             </div>
             <div class="field">
                 <label for="edit-session-warmup">Warmup</label>
                 <textarea id="edit-session-warmup" name="warmup" rows="3">{{.Session.Warmup}}</textarea>
             </div>
-            {{template "workout_selector" (dict "Prefix" "edit" "Workouts" .Workouts "InitialOrderCSV" .WorkoutOrderCSV)}}
         </section>
         <footer class="gap-2 p-6">
             <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>

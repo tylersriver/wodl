@@ -1,0 +1,66 @@
+{{define "today.html"}}
+{{template "head" .}}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+        <p class="text-muted-foreground text-sm">{{.TodayText}}</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Today's workout</h1>
+    </div>
+
+    {{if .Sessions}}
+    {{range .Sessions}}
+    <section class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+            {{if ne .Name $.DefaultName}}
+            <h2 class="text-lg font-semibold">{{.Name}}</h2>
+            {{end}}
+            <div class="ml-auto flex items-center gap-2">
+                {{if .TotalTimeMinutes}}
+                <span class="badge" data-variant="outline">{{derefInt .TotalTimeMinutes}} min</span>
+                {{end}}
+                <a href="/sessions/{{.Id}}" class="btn" data-variant="ghost" data-size="sm">Edit</a>
+            </div>
+        </div>
+
+        {{if .Warmup}}
+        <div class="card bg-card gap-3 rounded-xl border p-5">
+            <h3 class="font-semibold">Warmup</h3>
+            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Warmup}}</pre>
+        </div>
+        {{end}}
+
+        {{if .Workouts}}
+        <ol class="flex flex-col gap-3">
+            {{range $i, $w := .Workouts}}
+            {{template "session_workout_card" (dict "Index" $i "Workout" $w)}}
+            {{end}}
+        </ol>
+        {{else}}
+        <div class="rounded-xl border border-dashed px-6 py-10 text-center">
+            <p class="text-muted-foreground">This session has no workouts yet.</p>
+        </div>
+        {{end}}
+    </section>
+    {{end}}
+
+    <div class="flex flex-col gap-3 sm:flex-row">
+        <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="openDialog('create-session-modal')">
+            Plan another session
+        </button>
+        <a href="/sessions" class="btn w-full sm:w-auto" data-variant="ghost">See all sessions</a>
+    </div>
+    {{else}}
+    <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center">
+        <div class="flex flex-col gap-1">
+            <p class="font-medium">Nothing planned for today.</p>
+            <p class="text-muted-foreground text-sm">Pick the workouts you're doing and they'll show up here.</p>
+        </div>
+        <button type="button" class="btn" data-size="lg" onclick="openDialog('create-session-modal')">Plan today's session</button>
+        <a href="/sessions" class="text-muted-foreground text-sm underline underline-offset-4">See all sessions</a>
+    </div>
+    {{end}}
+</div>
+
+{{template "session_form" .}}
+{{template "dialog_script" .}}
+{{template "tail" .}}
+{{end}}

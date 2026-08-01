@@ -4,9 +4,10 @@ A workout logging app for tracking lifts and CrossFit-style WODs. Log your sessi
 
 ## Features
 
+- **Workout of the day** - Plan a session for a given day; the app opens on whatever is assigned to today
 - **Lift tracking** - Log weight, reps, sets with automatic 1RM estimation (Epley formula) and percentage tables
 - **WOD tracking** - Log AMRAP, For Time, EMOM, Tabata, Chipper, and custom workouts
-- **Search** - Find lifts and workouts from the dashboard
+- **Results** - Lifts and workouts in one filterable list
 - **Auth** - User accounts with JWT authentication
 
 ## Quick Start

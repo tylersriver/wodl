@@ -3,6 +3,14 @@
 ## Project Overview
 Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) and CrossFit-style WODs.
 
+## Core Model
+- A **Session** is the plan assigned to one day — the workout of the day. It has a
+  required date and an ordered list of workouts. It records what is *scheduled*, not
+  that it was performed, so there is no session-completion entity.
+- Results are recorded against the individual **Lift** (sets) and **Workout** (scores).
+- The landing page (`/`) shows the session dated today; `/results` is the combined,
+  filterable list of lifts and workouts.
+
 ## Tech Stack
 - Go backend with chi router, SQLite (modernc.org/sqlite pure Go driver)
 - Basecoat (shadcn/ui port, no React) + Tailwind CSS v4 + HTMX frontend, all self-hosted
@@ -40,5 +48,10 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   driven by `data-variant` / `data-size` attributes rather than class soup
 - Modals are native `<dialog class="dialog sheet">` opened with `openDialog(id)`; `sheet` makes
   them full-width bottom sheets on phones
-- Mobile nav is the bottom tab bar in layout.html; its active item is set client-side from
-  `location.pathname`, so handlers don't pass down a "current page" flag
+- Mobile nav is the bottom tab bar in layout.html (Today / Results / Sessions); its active
+  item is set client-side from `location.pathname`, so handlers don't pass down a
+  "current page" flag
+- `/lifts` and `/workouts` 301 to `/results`; their detail pages are unchanged
+- Schema changes go in `runVersionedMigrations` in infrastructure/db/sqlite/db.go, gated on
+  `PRAGMA user_version`. Anything dropped there must also be removed from `migrationSQL`,
+  which runs on every startup and would otherwise recreate it

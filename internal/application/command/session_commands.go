@@ -11,7 +11,7 @@ type CreateSessionCommand struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
-	Date             *time.Time
+	Date             time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 }
@@ -21,7 +21,7 @@ type UpdateSessionCommand struct {
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
-	Date             *time.Time
+	Date             time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 }
@@ -33,20 +33,4 @@ type DeleteSessionCommand struct {
 
 type CreateSessionCommandResult struct {
 	Result *common.SessionResult
-}
-
-type CreateSessionLogCommand struct {
-	UserId      uuid.UUID
-	SessionId   uuid.UUID
-	PerformedAt time.Time
-	Notes       string
-}
-
-type DeleteSessionLogCommand struct {
-	Id     uuid.UUID
-	UserId uuid.UUID
-}
-
-type CreateSessionLogCommandResult struct {
-	Result *common.SessionLogResult
 }

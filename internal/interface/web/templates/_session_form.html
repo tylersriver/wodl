@@ -1,0 +1,74 @@
+{{define "session_form"}}
+<!--
+  Create-session dialog. A session is the plan for one day, so the date is
+  always set — it defaults to today and the name is optional (the server falls
+  back to naming it after the day).
+-->
+<dialog id="create-session-modal" class="dialog sheet" aria-labelledby="create-session-title"
+        onclick="if (event.target === this) this.close()">
+    <form method="POST" action="/sessions" class="bg-card w-full max-w-xl gap-0 rounded-xl border shadow-lg">
+        <header class="gap-1.5 p-6 pb-4">
+            <h2 id="create-session-title" class="text-lg font-semibold">Plan a session</h2>
+            <p class="text-muted-foreground text-sm">Pick the workouts for a day. This is the plan, not a record of doing it.</p>
+        </header>
+        <section class="flex flex-col gap-4 overflow-y-auto px-6">
+            <div class="field">
+                <label for="session-date">Day</label>
+                <input type="date" id="session-date" name="date" value="{{.Today}}" required />
+            </div>
+            {{template "workout_selector" (dict "Prefix" "create" "Workouts" .Workouts "InitialOrderCSV" "")}}
+            <div class="field">
+                <label for="session-name">Name <span class="text-muted-foreground font-normal">(optional)</span></label>
+                <input type="text" id="session-name" name="name" placeholder="Named after the day if you leave this blank" />
+            </div>
+            <div class="field">
+                <label for="session-time">How long it should take <span class="text-muted-foreground font-normal">(min)</span></label>
+                <input type="number" id="session-time" name="total_time_minutes" min="0" value="60" inputmode="numeric" />
+            </div>
+            <div class="field">
+                <label for="session-warmup">Warmup</label>
+                <textarea id="session-warmup" name="warmup" rows="3"
+                    placeholder="5 min row&#10;Shoulder mobility&#10;2 x 10 banded pull-aparts"></textarea>
+            </div>
+        </section>
+        <footer class="gap-2 p-6">
+            <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn w-full sm:w-auto" {{if not .Workouts}}disabled{{end}}>Save session</button>
+        </footer>
+    </form>
+</dialog>
+{{end}}
+
+{{define "session_workout_card"}}
+<!--
+  One workout inside a session plan, with a direct route to record how it went.
+  Lifting workouts send you to the lift itself, where sets are logged.
+-->
+<li class="card bg-card gap-3 rounded-xl border p-5">
+    <div class="flex flex-col gap-2">
+        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc .Index}}</span>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/workouts/{{.Workout.Id}}" class="font-medium underline underline-offset-4">{{.Workout.Name}}</a>
+            <span class="badge" data-variant="secondary">{{.Workout.Type}}</span>
+        </div>
+        {{if or .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds}}
+        <div class="flex flex-wrap gap-2">
+            {{if .Workout.TimeCap}}<span class="badge" data-variant="outline">{{derefInt .Workout.TimeCap}} min cap</span>{{end}}
+            {{if .Workout.Rounds}}<span class="badge" data-variant="outline">{{derefInt .Workout.Rounds}} rounds</span>{{end}}
+            {{if .Workout.IntervalSeconds}}<span class="badge" data-variant="outline">{{derefInt .Workout.IntervalSeconds}}s interval</span>{{end}}
+        </div>
+        {{end}}
+    </div>
+    {{if .Workout.Description}}
+    <pre class="font-sans text-sm whitespace-pre-wrap">{{.Workout.Description}}</pre>
+    {{end}}
+    {{if eq .Workout.Type "lifting"}}
+    {{template "lifting_prescription" .Workout}}
+    {{end}}
+    {{if and (eq .Workout.Type "lifting") .Workout.Lift}}
+    <a href="/lifts/{{.Workout.Lift.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your sets</a>
+    {{else}}
+    <a href="/workouts/{{.Workout.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your score</a>
+    {{end}}
+</li>
+{{end}}
