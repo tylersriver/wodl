@@ -47,6 +47,15 @@ cd frontend && npm run watch                  # Same, rebuilding on change
 - Templates are embedded via Go embed (internal/interface/web/templates/embed.go)
 - DB migrations are inline SQL in infrastructure/db/sqlite/db.go (embed can't use `..` paths)
 - No CDNs — app.css and htmx.min.js are served from internal/interface/web/static so the PWA works offline
+- Reference cached assets through `{{asset "app.css"}}` (`static.AssetURL`), never a bare
+  path. Pages are network-first while `/static/` is cached by both the service worker and a
+  day of `max-age`, so a bare path pairs a new build's markup with the old stylesheet — and
+  since Tailwind only emits classes it finds, a class added alongside its markup is missing
+  outright and the element renders with *no* styling. The content hash makes the URL
+  uncacheable across builds. `sw.js` therefore pre-caches only the unhashed assets
+- One template set, built by `templates.Must()`. The server and the e2e harness both call
+  it; they used to each build their own FuncMap and drifted, so a helper added for a page
+  panicked in whichever one was forgotten
 - static/app.css is a BUILD ARTIFACT that is committed. Tailwind only emits classes it finds
   in the templates, so after editing markup you must re-run `cd frontend && npm run build`
   or new utility classes silently won't exist. Go itself needs no frontend toolchain.

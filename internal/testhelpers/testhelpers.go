@@ -2,8 +2,6 @@ package testhelpers
 
 import (
 	"database/sql"
-	"fmt"
-	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -59,39 +57,7 @@ func NewTestAppWithExtractor(t *testing.T, extractor services.BoardExtractor) *T
 	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 	importService := services.NewImportService(extractor, liftService, workoutService, sessionService)
 
-	funcMap := template.FuncMap{
-		"deref": func(f *float64) float64 {
-			if f == nil {
-				return 0
-			}
-			return *f
-		},
-		"derefInt": func(i *int) int {
-			if i == nil {
-				return 0
-			}
-			return *i
-		},
-		"inc": func(i int) int { return i + 1 },
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
-			if len(values)%2 != 0 {
-				return nil, fmt.Errorf("dict: odd args")
-			}
-			m := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				k, ok := values[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict: non-string key")
-				}
-				m[k] = values[i+1]
-			}
-			return m, nil
-		},
-	}
-
-	tmpl := template.Must(
-		template.New("").Funcs(funcMap).ParseFS(templates.FS, "*.html"),
-	)
+	tmpl := templates.Must()
 
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
 	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl, importService.Enabled())

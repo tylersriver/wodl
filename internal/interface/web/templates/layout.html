@@ -14,8 +14,12 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png" />
-    <link rel="stylesheet" href="/static/app.css" />
-    <script src="/static/htmx.min.js" defer></script>
+    <!--
+      Both carry a content hash, so a redeploy can't serve this page's markup
+      with the previously cached stylesheet. See static.AssetURL.
+    -->
+    <link rel="stylesheet" href="{{asset "app.css"}}" />
+    <script src="{{asset "htmx.min.js"}}" defer></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {

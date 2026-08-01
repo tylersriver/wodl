@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
@@ -94,26 +92,7 @@ func main() {
 	importService := services.NewImportService(boardExtractor, liftService, workoutService, sessionService)
 
 	// Templates
-	funcMap := template.FuncMap{
-		"deref": func(f *float64) float64 {
-			if f == nil {
-				return 0
-			}
-			return *f
-		},
-		"derefInt": func(i *int) int {
-			if i == nil {
-				return 0
-			}
-			return *i
-		},
-		"inc":  func(i int) int { return i + 1 },
-		"dict": dictFunc,
-	}
-
-	tmpl := template.Must(
-		template.New("").Funcs(funcMap).ParseFS(templates.FS, "*.html"),
-	)
+	tmpl := templates.Must()
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
@@ -196,23 +175,6 @@ func main() {
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
-}
-
-// dictFunc builds a map from alternating key/value template args so partials
-// can be invoked with named fields — e.g. {{template "x" (dict "K" v)}}.
-func dictFunc(values ...interface{}) (map[string]interface{}, error) {
-	if len(values)%2 != 0 {
-		return nil, errors.New("dict: odd number of args")
-	}
-	m := make(map[string]interface{}, len(values)/2)
-	for i := 0; i < len(values); i += 2 {
-		key, ok := values[i].(string)
-		if !ok {
-			return nil, fmt.Errorf("dict: key must be string, got %T", values[i])
-		}
-		m[key] = values[i+1]
-	}
-	return m, nil
 }
 
 // redirectTo permanently forwards a route to another path, keeping old
