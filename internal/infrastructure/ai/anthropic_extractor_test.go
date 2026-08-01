@@ -27,7 +27,7 @@ func TestExtractor_ReadsBoardImages(t *testing.T) {
 		t.Skip("set ANTHROPIC_API_KEY and WODL_BOARD_FIXTURES to run the live extraction test")
 	}
 
-	extractor := NewExtractor(key)
+	extractor := NewAnthropicExtractor(key)
 	if extractor == nil {
 		t.Fatal("expected an extractor for a non-empty key")
 	}
@@ -100,7 +100,7 @@ func TestExtractor_RequestShapeIsAccepted(t *testing.T) {
 		t.Skip("set ANTHROPIC_API_KEY and WODL_BOARD_FIXTURES to run the live request-shape test")
 	}
 
-	extractor := NewExtractor(key)
+	extractor := NewAnthropicExtractor(key)
 	var images []common.BoardImage
 	for _, path := range strings.Split(fixtures, ",") {
 		path = strings.TrimSpace(path)

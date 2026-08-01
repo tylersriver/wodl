@@ -58,11 +58,18 @@ cd frontend && npm run watch                  # Same, rebuilding on change
 - Schema changes go in `runVersionedMigrations` in infrastructure/db/sqlite/db.go, gated on
   `PRAGMA user_version`. Anything dropped there must also be removed from `migrationSQL`,
   which runs on every startup and would otherwise recreate it
-- Image import needs `ANTHROPIC_API_KEY`. Without it the extractor is left nil,
-  `ImportService.Enabled()` is false and the feature hides itself — wire the port through
-  a guard, since a nil `*ai.Extractor` stored in the interface would still test non-nil
-- The AI vendor stays behind the `services.BoardExtractor` port; tests inject a stub via
+- Image import picks its provider from whichever key is set: `GROQ_API_KEY` (with optional
+  `GROQ_MODEL`) wins, else `ANTHROPIC_API_KEY`. With neither, the extractor is left nil,
+  `ImportService.Enabled()` is false and the feature hides itself — always assign the port
+  through a guard, since a typed nil stored in the interface would still test non-nil
+- The vendor stays behind the `services.BoardExtractor` port; tests inject a stub via
   `testhelpers.NewTestAppWithExtractor`, so the import flow is covered without network access
+- Anthropic constrains the output with a strict tool schema; Groq states the JSON shape in
+  the prompt instead, because its vision models have not supported tools and images in the
+  same request. Either way `decodeBoardPayload` clamps the result to the domain's enums —
+  that shared clamp is what makes a loosely-schema'd provider safe to accept
+- `GROQ_MODEL` exists because Groq's catalogue turns over quickly. List what a key can
+  reach with `curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"`
 - Imported lifts and workouts are matched to existing ones by case-insensitive name so a
   repeated benchmark keeps one history; board wording (loads, "Score = Time", percentages
   of anything other than a 1RM) is kept verbatim in the description rather than reinterpreted

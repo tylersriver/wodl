@@ -1,11 +1,11 @@
-// Package ai holds the outward-facing AI integrations. It implements ports
-// declared in the application layer, so nothing above it depends on a vendor.
+// Package ai holds the outward-facing AI integrations. Each implements the
+// services.BoardExtractor port declared in the application layer, so nothing
+// above this package depends on a particular vendor.
 package ai
 
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -17,29 +17,29 @@ import (
 )
 
 const (
-	extractModel = anthropic.Model("claude-opus-5")
+	anthropicModel = anthropic.Model("claude-opus-5")
 	// Extraction output is small; the headroom is for thinking, which counts
 	// against the same budget.
-	extractMaxTokens = 8000
-	extractToolName  = "record_session"
-	boardDateLayout  = "2006-01-02"
+	anthropicMaxTokens = 8000
+	extractToolName    = "record_session"
 )
 
-// Extractor reads workout boards using Claude's vision support.
-type Extractor struct {
+// AnthropicExtractor reads workout boards using Claude's vision support and a
+// strict tool schema, so the model can only return values the domain accepts.
+type AnthropicExtractor struct {
 	client anthropic.Client
 	// now is injected so tests get a fixed clock; boards print a weekday and a
 	// day-month with no year, so resolving a date depends on today.
 	now func() time.Time
 }
 
-// NewExtractor returns an Extractor, or nil when no API key is configured so
-// the caller can disable the feature instead of failing at request time.
-func NewExtractor(apiKey string) *Extractor {
+// NewAnthropicExtractor returns an extractor, or nil when no API key is
+// configured so the caller can disable the feature rather than fail later.
+func NewAnthropicExtractor(apiKey string) *AnthropicExtractor {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil
 	}
-	return &Extractor{
+	return &AnthropicExtractor{
 		client: anthropic.NewClient(
 			option.WithAPIKey(apiKey),
 			// A person is waiting on this call, so fail well before the SDK's
@@ -50,21 +50,10 @@ func NewExtractor(apiKey string) *Extractor {
 	}
 }
 
-// SupportedMediaType reports whether an uploaded file is an image format the
-// API accepts.
-func SupportedMediaType(mediaType string) bool {
-	switch mediaType {
-	case "image/jpeg", "image/png", "image/gif", "image/webp":
-		return true
-	default:
-		return false
-	}
-}
-
 // buildParams assembles the request. Split out from Extract so a test can
 // validate the exact tool schema and image blocks against the API's validator
 // without spending a completion.
-func (e *Extractor) buildParams(images []common.BoardImage) (anthropic.MessageNewParams, error) {
+func (e *AnthropicExtractor) buildParams(images []common.BoardImage) (anthropic.MessageNewParams, error) {
 	blocks := make([]anthropic.ContentBlockParamUnion, 0, len(images)+1)
 	for _, img := range images {
 		if !SupportedMediaType(img.MediaType) {
@@ -75,7 +64,8 @@ func (e *Extractor) buildParams(images []common.BoardImage) (anthropic.MessageNe
 			base64.StdEncoding.EncodeToString(img.Data),
 		))
 	}
-	blocks = append(blocks, anthropic.NewTextBlock(e.prompt()))
+	// The tool schema already states the shape, so the prompt doesn't repeat it.
+	blocks = append(blocks, anthropic.NewTextBlock(boardPrompt(e.now(), false)))
 
 	adaptive := anthropic.ThinkingConfigAdaptiveParam{}
 	tool := anthropic.ToolParam{
@@ -86,8 +76,8 @@ func (e *Extractor) buildParams(images []common.BoardImage) (anthropic.MessageNe
 	}
 
 	return anthropic.MessageNewParams{
-		Model:     extractModel,
-		MaxTokens: extractMaxTokens,
+		Model:     anthropicModel,
+		MaxTokens: anthropicMaxTokens,
 		Thinking:  anthropic.ThinkingConfigParamUnion{OfAdaptive: &adaptive},
 		// Extraction accuracy is the whole feature, so this stays at the API
 		// default rather than trading it away for latency. It is the knob to
@@ -99,7 +89,7 @@ func (e *Extractor) buildParams(images []common.BoardImage) (anthropic.MessageNe
 	}, nil
 }
 
-func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*common.ExtractedSession, error) {
+func (e *AnthropicExtractor) Extract(ctx context.Context, images []common.BoardImage) (*common.ExtractedSession, error) {
 	params, err := e.buildParams(images)
 	if err != nil {
 		return nil, err
@@ -115,86 +105,10 @@ func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*c
 
 	for _, block := range message.Content {
 		if use, ok := block.AsAny().(anthropic.ToolUseBlock); ok && use.Name == extractToolName {
-			return e.decode(use.Input)
+			return decodeBoardPayload(use.Input)
 		}
 	}
 	return nil, fmt.Errorf("no session could be read from the image")
-}
-
-func (e *Extractor) prompt() string {
-	today := e.now()
-	return fmt.Sprintf(`These images show one day of programming from a CrossFit gym's whiteboard or app.
-
-Record it as a single training session by calling %s.
-
-Guidance:
-- Today is %s (%s). Boards usually print a weekday and a day and month with no
-  year — resolve the year so the resulting date matches the weekday shown, and
-  prefer the most recent such date rather than a future one. Leave the date
-  empty only if the board shows none.
-- Each distinct piece of work is its own workout, in the order it appears: a
-  strength or barbell piece and a metcon are two workouts, not one.
-- Put the movements and reps in the description exactly as the board words
-  them, including prescribed loads ("Barbell: 115/80"), scoring notes
-  ("Score = Time"), and percentages of anything other than a one-rep max
-  ("80-85%% of 5x5"). Do not convert, recalculate, or rephrase these — they are
-  kept verbatim so nothing is lost or misstated.
-- Use the lifting type only for a piece built around a named barbell lift, and
-  set lift_name to that movement.
-- Only record numbers the board actually states. Leave a field empty rather
-  than guessing.`, extractToolName, today.Format("Monday, 2 January 2006"), today.Format(boardDateLayout))
-}
-
-// decode converts the tool payload into the application's extraction type,
-// dropping anything that isn't a value the domain accepts.
-func (e *Extractor) decode(raw json.RawMessage) (*common.ExtractedSession, error) {
-	var payload struct {
-		Name             string `json:"name"`
-		Date             string `json:"date"`
-		Warmup           string `json:"warmup"`
-		TotalTimeMinutes *int   `json:"total_time_minutes"`
-		Workouts         []struct {
-			Name            string `json:"name"`
-			Type            string `json:"type"`
-			Description     string `json:"description"`
-			TimeCapMinutes  *int   `json:"time_cap_minutes"`
-			Rounds          *int   `json:"rounds"`
-			IntervalSeconds *int   `json:"interval_seconds"`
-			LiftName        string `json:"lift_name"`
-			LiftCategory    string `json:"lift_category"`
-		} `json:"workouts"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil, fmt.Errorf("understanding the extracted session: %w", err)
-	}
-
-	session := &common.ExtractedSession{
-		Name:             strings.TrimSpace(payload.Name),
-		Warmup:           strings.TrimSpace(payload.Warmup),
-		TotalTimeMinutes: payload.TotalTimeMinutes,
-	}
-	if d := strings.TrimSpace(payload.Date); d != "" {
-		if parsed, err := time.ParseInLocation(boardDateLayout, d, time.Local); err == nil {
-			session.Date = parsed
-		}
-	}
-
-	for _, w := range payload.Workouts {
-		if strings.TrimSpace(w.Name) == "" {
-			continue
-		}
-		session.Workouts = append(session.Workouts, &common.ExtractedWorkout{
-			Name:            strings.TrimSpace(w.Name),
-			Type:            validWorkoutType(w.Type),
-			Description:     strings.TrimSpace(w.Description),
-			TimeCapMinutes:  w.TimeCapMinutes,
-			Rounds:          w.Rounds,
-			IntervalSeconds: w.IntervalSeconds,
-			LiftName:        strings.TrimSpace(w.LiftName),
-			LiftCategory:    validLiftCategory(w.LiftCategory),
-		})
-	}
-	return session, nil
 }
 
 // sessionSchema mirrors the domain's enums so the model can only produce values
@@ -268,30 +182,4 @@ func sessionSchema() anthropic.ToolInputSchemaParam {
 		},
 		ExtraFields: map[string]any{"additionalProperties": false},
 	}
-}
-
-func enumValues[T ~string](values []T) []string {
-	out := make([]string, 0, len(values))
-	for _, v := range values {
-		out = append(out, string(v))
-	}
-	return out
-}
-
-func validWorkoutType(v string) string {
-	for _, t := range entities.ValidWorkoutTypes() {
-		if string(t) == v {
-			return v
-		}
-	}
-	return string(entities.WorkoutTypeCustom)
-}
-
-func validLiftCategory(v string) string {
-	for _, c := range entities.ValidLiftCategories() {
-		if string(c) == v {
-			return v
-		}
-	}
-	return ""
 }

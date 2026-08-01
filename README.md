@@ -37,7 +37,17 @@ PORT=8080 ./wodl
 | `PORT` | `8080` | HTTP server port |
 | `JWT_SECRET` | `wodl-dev-secret-change-in-production` | JWT signing key |
 | `DB_PATH` | `wodl.db` | SQLite database file path |
-| `ANTHROPIC_API_KEY` | _(unset)_ | Enables importing a session from photos. Unset, the feature is hidden and the rest of the app is unaffected. |
+| `GROQ_API_KEY` | _(unset)_ | Enables importing a session from photos, via Groq. Takes precedence over `ANTHROPIC_API_KEY`. |
+| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Vision model to use with Groq. Override if that model isn't available to your key. |
+| `ANTHROPIC_API_KEY` | _(unset)_ | Enables importing a session from photos, via Claude. Used when `GROQ_API_KEY` is unset. |
+
+With neither key set, image import is hidden and the rest of the app is unaffected.
+
+To see which models a Groq key can reach:
+
+```bash
+curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"
+```
 
 ## Development
 

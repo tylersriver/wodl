@@ -66,15 +66,21 @@ func main() {
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
 	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 
-	// Image import is optional: without an API key the extractor is left nil
-	// and the feature hides itself. Assigned through a guard rather than
-	// directly, because a nil *ai.Extractor in the interface would still make
-	// the interface itself non-nil and defeat the Enabled() check.
+	// Image import is optional and provider-agnostic: whichever key is present
+	// selects the extractor, and with neither the feature hides itself. Each
+	// branch assigns through a guard rather than directly, because a typed nil
+	// stored in the interface would still test non-nil and defeat Enabled().
 	var boardExtractor services.BoardExtractor
-	if extractor := ai.NewExtractor(os.Getenv("ANTHROPIC_API_KEY")); extractor != nil {
+	switch {
+	case os.Getenv("GROQ_API_KEY") != "":
+		extractor := ai.NewGroqExtractor(os.Getenv("GROQ_API_KEY"), os.Getenv("GROQ_MODEL"))
 		boardExtractor = extractor
-	} else {
-		log.Print("ANTHROPIC_API_KEY not set — importing sessions from images is disabled")
+		log.Printf("importing sessions from images via Groq (%s)", extractor.Model())
+	case os.Getenv("ANTHROPIC_API_KEY") != "":
+		boardExtractor = ai.NewAnthropicExtractor(os.Getenv("ANTHROPIC_API_KEY"))
+		log.Print("importing sessions from images via Anthropic")
+	default:
+		log.Print("no GROQ_API_KEY or ANTHROPIC_API_KEY — importing sessions from images is disabled")
 	}
 	importService := services.NewImportService(boardExtractor, liftService, workoutService, sessionService)
 
