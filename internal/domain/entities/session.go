@@ -7,14 +7,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// Session groups an ordered list of workouts into a single training session
-// with an optional free-text warmup and an estimated total duration.
+// Session is the training plan assigned to a single day: an ordered list of
+// workouts with an optional free-text warmup and an estimated total duration.
+// It records what is scheduled, not that it was performed — results live on the
+// individual lifts and workouts.
 type Session struct {
 	Id               uuid.UUID
 	UserId           uuid.UUID
 	Name             string
 	Warmup           string
-	Date             *time.Time
+	Date             time.Time
 	TotalTimeMinutes *int
 	WorkoutIds       []uuid.UUID
 	CreatedAt        time.Time
@@ -29,6 +31,9 @@ func (s *Session) validate() error {
 	if s.UserId == uuid.Nil {
 		return errors.New("user id must not be empty")
 	}
+	if s.Date.IsZero() {
+		return errors.New("session date must not be empty")
+	}
 	if s.TotalTimeMinutes != nil && *s.TotalTimeMinutes < 0 {
 		return errors.New("total time must not be negative")
 	}
@@ -40,7 +45,7 @@ func (s *Session) validate() error {
 	return nil
 }
 
-func NewSession(userId uuid.UUID, name, warmup string, date *time.Time, totalTimeMinutes *int, workoutIds []uuid.UUID) *Session {
+func NewSession(userId uuid.UUID, name, warmup string, date time.Time, totalTimeMinutes *int, workoutIds []uuid.UUID) *Session {
 	now := time.Now()
 	return &Session{
 		Id:               uuid.Must(uuid.NewV7()),
@@ -65,7 +70,7 @@ func (s *Session) UpdateWarmup(warmup string) {
 	s.UpdatedAt = time.Now()
 }
 
-func (s *Session) UpdateDate(date *time.Time) {
+func (s *Session) UpdateDate(date time.Time) {
 	s.Date = date
 	s.UpdatedAt = time.Now()
 }

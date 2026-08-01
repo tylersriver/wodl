@@ -1,18 +1,18 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/tyler/wodl/internal/application/services"
+	"github.com/tyler/wodl/internal/infrastructure/ai"
 	"github.com/tyler/wodl/internal/infrastructure/auth"
 	"github.com/tyler/wodl/internal/infrastructure/db/sqlite"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
@@ -58,44 +58,49 @@ func main() {
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
 	sessionRepo := sqlite.NewSessionRepository(db)
-	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
-	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
-	quickLogService := services.NewQuickLogService(liftService, workoutService, sessionService)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
+
+	// Image import is optional and provider-agnostic: whichever key is present
+	// selects the extractor, and with neither the feature hides itself. Each
+	// branch assigns through a guard rather than directly, because a typed nil
+	// stored in the interface would still test non-nil and defeat Enabled().
+	var boardExtractor services.BoardExtractor
+	switch {
+	case os.Getenv("GROQ_API_KEY") != "":
+		// -1 means "use the default cap"; an explicit 0 disables scaling.
+		maxEdge := -1
+		if v := os.Getenv("GROQ_MAX_IMAGE_EDGE"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				maxEdge = n
+			}
+		}
+		extractor := ai.NewGroqExtractor(os.Getenv("GROQ_API_KEY"), os.Getenv("GROQ_MODEL"), maxEdge)
+		boardExtractor = extractor
+		log.Printf("importing sessions from images via Groq (%s, images capped at %dpx)",
+			extractor.Model(), extractor.MaxImageEdge())
+	case os.Getenv("ANTHROPIC_API_KEY") != "":
+		boardExtractor = ai.NewAnthropicExtractor(os.Getenv("ANTHROPIC_API_KEY"))
+		log.Print("importing sessions from images via Anthropic")
+	default:
+		log.Print("no GROQ_API_KEY or ANTHROPIC_API_KEY — importing sessions from images is disabled")
+	}
+	importService := services.NewImportService(boardExtractor, liftService, workoutService, sessionService)
 
 	// Templates
-	funcMap := template.FuncMap{
-		"deref": func(f *float64) float64 {
-			if f == nil {
-				return 0
-			}
-			return *f
-		},
-		"derefInt": func(i *int) int {
-			if i == nil {
-				return 0
-			}
-			return *i
-		},
-		"inc":  func(i int) int { return i + 1 },
-		"dict": dictFunc,
-	}
-
-	tmpl := template.Must(
-		template.New("").Funcs(funcMap).ParseFS(templates.FS, "*.html"),
-	)
+	tmpl := templates.Must()
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl, importService.Enabled())
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
-	quickLogHandler := handlers.NewQuickLogHandler(quickLogService, liftService, workoutService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl, importService.Enabled())
+	importHandler := handlers.NewImportHandler(importService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -128,10 +133,17 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(jwtService))
 
-		r.Get("/", dashHandler.Dashboard)
+		// Today's assigned session is the landing page.
+		r.Get("/", dashHandler.Today)
 		r.Post("/logout", authHandler.Logout)
 
-		r.Get("/lifts", liftHandler.List)
+		// Lifts and workouts share one filterable list.
+		r.Get("/results", dashHandler.Results)
+
+		// The old separate index pages are now that combined list.
+		r.Get("/lifts", redirectTo("/results?kind=lifts"))
+		r.Get("/workouts", redirectTo("/results?kind=workouts"))
+
 		r.Post("/lifts", liftHandler.Create)
 		r.Get("/lifts/{id}", liftHandler.Detail)
 		r.Put("/lifts/{id}", liftHandler.Update)
@@ -139,7 +151,6 @@ func main() {
 		r.Post("/lifts/{id}/logs", liftHandler.CreateLog)
 		r.Delete("/lifts/{id}/logs/{logId}", liftHandler.DeleteLog)
 
-		r.Get("/workouts", workoutHandler.List)
 		r.Post("/workouts", workoutHandler.Create)
 		r.Get("/workouts/{id}", workoutHandler.Detail)
 		r.Put("/workouts/{id}", workoutHandler.Update)
@@ -151,13 +162,12 @@ func main() {
 		r.Get("/sessions/{id}", sessionHandler.Detail)
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
-		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
-		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
 
-		r.Get("/quick-log", quickLogHandler.Page)
-		r.Post("/quick-log", quickLogHandler.Submit)
+		// Build a session from photos of a gym's programming.
+		r.Get("/import", importHandler.Page)
+		r.Post("/import/extract", importHandler.Extract)
+		r.Post("/import", importHandler.Create)
 
-		r.Get("/api/search", dashHandler.Search)
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
 
@@ -167,21 +177,12 @@ func main() {
 	}
 }
 
-// dictFunc builds a map from alternating key/value template args so partials
-// can be invoked with named fields — e.g. {{template "x" (dict "K" v)}}.
-func dictFunc(values ...interface{}) (map[string]interface{}, error) {
-	if len(values)%2 != 0 {
-		return nil, errors.New("dict: odd number of args")
+// redirectTo permanently forwards a route to another path, keeping old
+// bookmarks for /lifts and /workouts working now that both live under /results.
+func redirectTo(target string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	}
-	m := make(map[string]interface{}, len(values)/2)
-	for i := 0; i < len(values); i += 2 {
-		key, ok := values[i].(string)
-		if !ok {
-			return nil, fmt.Errorf("dict: key must be string, got %T", values[i])
-		}
-		m[key] = values[i+1]
-	}
-	return m, nil
 }
 
 // pwaAssetHandler serves a single embedded asset at its top-level URL. Used

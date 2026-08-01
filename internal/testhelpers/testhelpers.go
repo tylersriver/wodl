@@ -2,8 +2,6 @@ package testhelpers
 
 import (
 	"database/sql"
-	"fmt"
-	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,10 +22,19 @@ type TestApp struct {
 	LiftService    *services.LiftService
 	WorkoutService *services.WorkoutService
 	SessionService *services.SessionService
+	ImportService  *services.ImportService
 	JWTService     *auth.JWTService
 }
 
 func NewTestApp(t *testing.T) *TestApp {
+	t.Helper()
+	return NewTestAppWithExtractor(t, nil)
+}
+
+// NewTestAppWithExtractor builds the app with a board extractor wired in, so
+// the image-import routes can be exercised without calling a real API. Pass nil
+// to leave the feature disabled, as it is in production without an API key.
+func NewTestAppWithExtractor(t *testing.T, extractor services.BoardExtractor) *TestApp {
 	t.Helper()
 
 	db, err := sqlite.NewDB(":memory:")
@@ -43,52 +50,21 @@ func NewTestApp(t *testing.T) *TestApp {
 	workoutRepo := sqlite.NewWorkoutRepository(db)
 	workoutResultRepo := sqlite.NewWorkoutResultRepository(db)
 	sessionRepo := sqlite.NewSessionRepository(db)
-	sessionLogRepo := sqlite.NewSessionLogRepository(db)
 
 	authService := services.NewAuthService(userRepo, jwtService)
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
-	sessionService := services.NewSessionService(sessionRepo, workoutRepo, sessionLogRepo)
+	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
+	importService := services.NewImportService(extractor, liftService, workoutService, sessionService)
 
-	funcMap := template.FuncMap{
-		"deref": func(f *float64) float64 {
-			if f == nil {
-				return 0
-			}
-			return *f
-		},
-		"derefInt": func(i *int) int {
-			if i == nil {
-				return 0
-			}
-			return *i
-		},
-		"inc": func(i int) int { return i + 1 },
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
-			if len(values)%2 != 0 {
-				return nil, fmt.Errorf("dict: odd args")
-			}
-			m := make(map[string]interface{}, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				k, ok := values[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict: non-string key")
-				}
-				m[k] = values[i+1]
-			}
-			return m, nil
-		},
-	}
-
-	tmpl := template.Must(
-		template.New("").Funcs(funcMap).ParseFS(templates.FS, "*.html"),
-	)
+	tmpl := templates.Must()
 
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl, importService.Enabled())
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl, importService.Enabled())
+	importHandler := handlers.NewImportHandler(importService, tmpl)
 
 	r := chi.NewRouter()
 	r.Use(methodOverride)
@@ -101,10 +77,15 @@ func NewTestApp(t *testing.T) *TestApp {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(jwtService))
 
-		r.Get("/", dashHandler.Dashboard)
+		r.Get("/", dashHandler.Today)
 		r.Post("/logout", authHandler.Logout)
 
-		r.Get("/lifts", liftHandler.List)
+		r.Get("/results", dashHandler.Results)
+
+		// Mirrors main.go: the old index pages now forward to the combined list.
+		r.Get("/lifts", redirectTo("/results?kind=lifts"))
+		r.Get("/workouts", redirectTo("/results?kind=workouts"))
+
 		r.Post("/lifts", liftHandler.Create)
 		r.Get("/lifts/{id}", liftHandler.Detail)
 		r.Put("/lifts/{id}", liftHandler.Update)
@@ -112,7 +93,6 @@ func NewTestApp(t *testing.T) *TestApp {
 		r.Post("/lifts/{id}/logs", liftHandler.CreateLog)
 		r.Delete("/lifts/{id}/logs/{logId}", liftHandler.DeleteLog)
 
-		r.Get("/workouts", workoutHandler.List)
 		r.Post("/workouts", workoutHandler.Create)
 		r.Get("/workouts/{id}", workoutHandler.Detail)
 		r.Put("/workouts/{id}", workoutHandler.Update)
@@ -124,8 +104,10 @@ func NewTestApp(t *testing.T) *TestApp {
 		r.Get("/sessions/{id}", sessionHandler.Detail)
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
-		r.Post("/sessions/{id}/logs", sessionHandler.CreateLog)
-		r.Delete("/sessions/{id}/logs/{logId}", sessionHandler.DeleteLog)
+
+		r.Get("/import", importHandler.Page)
+		r.Post("/import/extract", importHandler.Extract)
+		r.Post("/import", importHandler.Create)
 
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
@@ -144,7 +126,14 @@ func NewTestApp(t *testing.T) *TestApp {
 		LiftService:    liftService,
 		WorkoutService: workoutService,
 		SessionService: sessionService,
+		ImportService:  importService,
 		JWTService:     jwtService,
+	}
+}
+
+func redirectTo(target string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	}
 }
 

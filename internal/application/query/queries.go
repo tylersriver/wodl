@@ -21,8 +21,8 @@ type GetLiftByIdQuery struct {
 }
 
 type GetLiftByIdQueryResult struct {
-	Lift           *common.LiftResult
-	Logs           []*common.LiftLogResult
+	Lift            *common.LiftResult
+	Logs            []*common.LiftLogResult
 	PercentageTable map[int]float64
 }
 
@@ -84,12 +84,14 @@ type GetSessionByIdQueryResult struct {
 	Session *common.SessionResult
 }
 
-type GetSessionLogsInRangeQuery struct {
+// GetSessionsInRangeQuery selects sessions dated within [Start, End), backing
+// the today, week and month views.
+type GetSessionsInRangeQuery struct {
 	UserId uuid.UUID
 	Start  time.Time
 	End    time.Time
 }
 
-type GetSessionLogsInRangeQueryResult struct {
-	Results []*common.SessionLogResult
+type GetSessionsInRangeQueryResult struct {
+	Results []*common.SessionResult
 }

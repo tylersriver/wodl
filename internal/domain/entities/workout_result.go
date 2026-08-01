@@ -10,11 +10,11 @@ import (
 type ScoreType string
 
 const (
-	ScoreTypeReps         ScoreType = "reps"
-	ScoreTypeTime         ScoreType = "time"
-	ScoreTypeRoundsReps   ScoreType = "rounds_and_reps"
-	ScoreTypeLoad         ScoreType = "load"
-	ScoreTypeCustom       ScoreType = "custom"
+	ScoreTypeReps       ScoreType = "reps"
+	ScoreTypeTime       ScoreType = "time"
+	ScoreTypeRoundsReps ScoreType = "rounds_and_reps"
+	ScoreTypeLoad       ScoreType = "load"
+	ScoreTypeCustom     ScoreType = "custom"
 )
 
 func ValidScoreTypes() []ScoreType {

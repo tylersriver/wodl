@@ -90,15 +90,6 @@ CREATE TABLE IF NOT EXISTS session_workouts (
     PRIMARY KEY (session_id, position)
 );
 
-CREATE TABLE IF NOT EXISTS session_logs (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES users(id),
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    performed_at DATETIME NOT NULL,
-    notes TEXT,
-    created_at DATETIME NOT NULL
-);
-
 CREATE INDEX IF NOT EXISTS idx_lifts_user_id ON lifts(user_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_lift_id ON lift_logs(lift_id);
 CREATE INDEX IF NOT EXISTS idx_lift_logs_user_id ON lift_logs(user_id);
@@ -108,9 +99,7 @@ CREATE INDEX IF NOT EXISTS idx_workout_results_user_id ON workout_results(user_i
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_session_workouts_session_id ON session_workouts(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_workouts_workout_id ON session_workouts(workout_id);
-CREATE INDEX IF NOT EXISTS idx_session_logs_user_id ON session_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_session_logs_session_id ON session_logs(session_id);
-CREATE INDEX IF NOT EXISTS idx_session_logs_performed_at ON session_logs(performed_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_session_date ON sessions(session_date);
 `
 
 // workoutLiftingColumns adds the lifting-specific columns to the workouts table
@@ -183,6 +172,47 @@ func runVersionedMigrations(db *sql.DB) error {
 		}
 		if _, err := db.Exec(`PRAGMA user_version = 1`); err != nil {
 			return fmt.Errorf("bumping user_version to 1: %w", err)
+		}
+	}
+
+	// v2: sessions became the plan for a given day rather than something you
+	// separately recorded having done, so session_logs and its completion
+	// records are gone. Any session that predates the change and has no date
+	// is backfilled from its earliest completion before the table is dropped.
+	if version < 2 {
+		// Databases created after this change never had session_logs, so only
+		// reach for it when it is actually present.
+		var hasLogs int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'session_logs'`,
+		).Scan(&hasLogs); err != nil {
+			return fmt.Errorf("checking for session_logs: %w", err)
+		}
+
+		if hasLogs > 0 {
+			if _, err := db.Exec(
+				`UPDATE sessions
+				 SET session_date = (
+				     SELECT MIN(performed_at) FROM session_logs
+				     WHERE session_logs.session_id = sessions.id
+				 )
+				 WHERE session_date IS NULL
+				   AND EXISTS (SELECT 1 FROM session_logs WHERE session_logs.session_id = sessions.id)`,
+			); err != nil {
+				return fmt.Errorf("backfilling session dates: %w", err)
+			}
+			if _, err := db.Exec(`DROP TABLE session_logs`); err != nil {
+				return fmt.Errorf("dropping session_logs: %w", err)
+			}
+		}
+
+		// A session is now always tied to a day, so anything still undated
+		// falls back to when it was created.
+		if _, err := db.Exec(`UPDATE sessions SET session_date = created_at WHERE session_date IS NULL`); err != nil {
+			return fmt.Errorf("defaulting session dates: %w", err)
+		}
+		if _, err := db.Exec(`PRAGMA user_version = 2`); err != nil {
+			return fmt.Errorf("bumping user_version to 2: %w", err)
 		}
 	}
 

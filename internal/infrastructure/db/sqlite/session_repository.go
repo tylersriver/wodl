@@ -95,6 +95,40 @@ func (r *SessionRepository) FindAllByUserId(userId uuid.UUID) ([]*entities.Sessi
 	return sessions, nil
 }
 
+func (r *SessionRepository) FindByUserInRange(userId uuid.UUID, start, end time.Time) ([]*entities.Session, error) {
+	rows, err := r.db.Query(
+		`SELECT id, user_id, name, warmup, session_date, total_time_minutes, created_at, updated_at, deleted_at
+		 FROM sessions
+		 WHERE user_id = ? AND deleted_at IS NULL AND session_date >= ? AND session_date < ?
+		 ORDER BY session_date, name`, userId.String(), start, end,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying sessions in range: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []*entities.Session
+	for rows.Next() {
+		s, err := r.scanSessionRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, s := range sessions {
+		ids, err := r.findWorkoutIds(s.Id)
+		if err != nil {
+			return nil, err
+		}
+		s.WorkoutIds = ids
+	}
+	return sessions, nil
+}
+
 func (r *SessionRepository) Update(s *entities.ValidatedSession) (*entities.Session, error) {
 	tx, err := r.db.Begin()
 	if err != nil {

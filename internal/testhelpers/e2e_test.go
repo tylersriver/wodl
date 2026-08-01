@@ -93,8 +93,8 @@ func TestE2E_LiftFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	// List lifts
-	resp, err = client.Get(app.Server.URL + "/lifts")
+	// Lifts are listed on the combined results page
+	resp, err = client.Get(app.Server.URL + "/results")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -184,7 +184,7 @@ func TestE2E_UnauthenticatedRedirects(t *testing.T) {
 	app := NewTestApp(t)
 	client := newClient()
 
-	paths := []string{"/", "/lifts", "/workouts"}
+	paths := []string{"/", "/results", "/sessions"}
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			resp, err := client.Get(app.Server.URL + path)

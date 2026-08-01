@@ -1,0 +1,153 @@
+{{define "today.html"}}
+{{template "head" .}}
+<div class="flex flex-col gap-6">
+    <!--
+      Day stepper. The arrows are ordinary links, and the swipe gesture below
+      just follows the same two URLs — so stepping through days works with
+      JavaScript off, on a desktop, and for anyone who can't perform a swipe.
+    -->
+    <div class="flex items-center gap-2">
+        <a href="/?date={{.PrevDate}}" class="btn min-h-11 min-w-11 shrink-0" data-variant="ghost"
+           aria-label="Previous day" rel="prev">&larr;</a>
+        <div class="flex min-w-0 flex-1 flex-col items-center text-center">
+            <p class="text-muted-foreground truncate text-sm">{{.TodayText}}</p>
+            <h1 class="truncate text-2xl font-semibold tracking-tight">
+                {{if .IsToday}}Today's{{else}}{{.WeekdayText}}'s{{end}} workout
+            </h1>
+        </div>
+        <a href="/?date={{.NextDate}}" class="btn min-h-11 min-w-11 shrink-0" data-variant="ghost"
+           aria-label="Next day" rel="next">&rarr;</a>
+    </div>
+    {{if not .IsToday}}
+    <div class="-mt-4 text-center">
+        <a href="/" class="text-muted-foreground text-sm underline underline-offset-4">Back to today</a>
+    </div>
+    {{end}}
+
+    {{if .Sessions}}
+    {{range .Sessions}}
+    <section class="flex flex-col gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+            {{if ne .Name $.DefaultName}}
+            <h2 class="text-lg font-semibold">{{.Name}}</h2>
+            {{end}}
+            <div class="ml-auto flex items-center gap-2">
+                {{if .TotalTimeMinutes}}
+                <span class="badge" data-variant="outline">{{derefInt .TotalTimeMinutes}} min</span>
+                {{end}}
+                <a href="/sessions/{{.Id}}" class="btn" data-variant="ghost" data-size="sm">Edit</a>
+            </div>
+        </div>
+
+        {{if .Warmup}}
+        <div class="card bg-card gap-3 rounded-xl border p-5">
+            <h3 class="font-semibold">Warmup</h3>
+            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Warmup}}</pre>
+        </div>
+        {{end}}
+
+        {{if .Workouts}}
+        <ol class="flex flex-col gap-3">
+            {{range $i, $w := .Workouts}}
+            {{template "session_workout_card" (dict "Index" $i "Workout" $w)}}
+            {{end}}
+        </ol>
+        {{else}}
+        <div class="rounded-xl border border-dashed px-6 py-10 text-center">
+            <p class="text-muted-foreground">This session has no workouts yet.</p>
+        </div>
+        {{end}}
+    </section>
+    {{end}}
+
+    <!--
+      Planning and importing are deliberately absent once the day is filled in:
+      the page is then for reading what you're doing, and both actions stay a
+      tap away on Sessions. Each session above still has its own Edit.
+    -->
+    <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="/sessions" class="btn w-full sm:w-auto" data-variant="ghost">See all sessions</a>
+    </div>
+    {{else}}
+    <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center">
+        <div class="flex flex-col gap-1">
+            <p class="font-medium">Nothing planned for {{if .IsToday}}today{{else}}this day{{end}}.</p>
+            <p class="text-muted-foreground text-sm">Pick the workouts you're doing and they'll show up here.</p>
+        </div>
+        <button type="button" class="btn" data-size="lg" onclick="openDialog('create-session-modal')">
+            Plan {{if .IsToday}}today's session{{else}}this day{{end}}
+        </button>
+        {{if .ImportEnabled}}
+        <a href="/import" class="btn" data-variant="outline">Import from a photo</a>
+        {{end}}
+        <a href="/sessions" class="text-muted-foreground text-sm underline underline-offset-4">See all sessions</a>
+    </div>
+    {{end}}
+</div>
+
+{{/* Only the empty state can open the create dialog, so only it needs one. */}}
+{{if not .Sessions}}
+{{template "session_form" .}}
+{{template "dialog_script" .}}
+{{end}}
+
+<script>
+// Swipe left for the next day, right for the previous — the same two URLs the
+// arrows above use, so this is pure enhancement and nothing depends on it.
+//
+// The guards are the whole job here; a naive handler steals gestures the user
+// meant for something else.
+(function () {
+    var prev = {{printf "/?date=%s" .PrevDate}};
+    var next = {{printf "/?date=%s" .NextDate}};
+
+    // A swipe has to be clearly sideways and clearly deliberate: mostly-vertical
+    // drags are the page scrolling, and short ones are usually a tap that moved.
+    var MIN_DISTANCE = 60;
+    var HORIZONTAL_RATIO = 2;
+    // iOS reserves the screen edges for its own back/forward gesture.
+    var EDGE_GUARD = 28;
+    // Fast flicks read as swipes at shorter distances; slow drags usually aren't.
+    var MAX_DURATION = 800;
+
+    var startX = 0, startY = 0, startedAt = 0, tracking = false;
+
+    document.addEventListener('touchstart', function (e) {
+        tracking = false;
+        // Pinches and two-finger gestures are never a day change.
+        if (e.touches.length !== 1) return;
+        // An open sheet owns the screen while it is up.
+        if (document.querySelector('dialog[open]')) return;
+
+        var t = e.touches[0];
+        if (t.clientX < EDGE_GUARD || t.clientX > window.innerWidth - EDGE_GUARD) return;
+        // Don't hijack a drag that began on something the user can operate,
+        // select text in, or scroll sideways.
+        if (e.target.closest('a, button, input, textarea, select, label, pre, table, [data-no-swipe]')) return;
+
+        startX = t.clientX;
+        startY = t.clientY;
+        startedAt = e.timeStamp;
+        tracking = true;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+        if (!tracking) return;
+        tracking = false;
+
+        var t = e.changedTouches[0];
+        var dx = t.clientX - startX;
+        var dy = t.clientY - startY;
+
+        if (e.timeStamp - startedAt > MAX_DURATION) return;
+        if (Math.abs(dx) < MIN_DISTANCE) return;
+        if (Math.abs(dx) < Math.abs(dy) * HORIZONTAL_RATIO) return;
+
+        // Dragging the content leftwards pulls the next day into view, which is
+        // the direction every calendar and photo viewer uses.
+        window.location.href = dx < 0 ? next : prev;
+    }, { passive: true });
+})();
+</script>
+{{template "tail" .}}
+{{end}}

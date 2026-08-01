@@ -18,102 +18,169 @@ type DashboardHandler struct {
 	workoutService *services.WorkoutService
 	sessionService *services.SessionService
 	templates      *template.Template
+	// importEnabled gates the "import from a photo" entry point, which only
+	// works when an API key is configured.
+	importEnabled bool
 }
 
-func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, sessionService *services.SessionService, templates *template.Template) *DashboardHandler {
+func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, sessionService *services.SessionService, templates *template.Template, importEnabled bool) *DashboardHandler {
 	return &DashboardHandler{
 		liftService:    liftService,
 		workoutService: workoutService,
 		sessionService: sessionService,
 		templates:      templates,
+		importEnabled:  importEnabled,
 	}
 }
 
-func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
+// Today renders the session assigned to one day — the workout of the day. It is
+// the landing page, so the first thing the user sees is what they are meant to
+// be doing rather than a search box.
+//
+// The day is addressable with ?date=YYYY-MM-DD, which is what makes stepping
+// between days possible at all: the arrows and the swipe gesture are both just
+// links to the neighbouring dates, so the feature works without JavaScript and
+// every day can be bookmarked. An unparseable date falls back to today rather
+// than erroring, since it only ever arrives from a hand-edited URL.
+func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
-	recentLogs, _ := h.liftService.GetRecentLiftLogs(&query.GetRecentLiftLogsQuery{
-		UserId: userId, Limit: 5,
-	})
+	now := time.Now()
+	today := startOfDay(now)
+	day := today
+	if v := strings.TrimSpace(r.URL.Query().Get("date")); v != "" {
+		if parsed, err := time.ParseInLocation(sessionDateLayout, v, time.Local); err == nil {
+			day = startOfDay(parsed)
+		}
+	}
 
-	recentResults, _ := h.workoutService.GetRecentWorkoutResults(&query.GetRecentWorkoutResultsQuery{
-		UserId: userId, Limit: 5,
+	todays, err := h.sessionService.GetSessionsInRange(&query.GetSessionsInRangeQuery{
+		UserId: userId,
+		Start:  day,
+		End:    day.AddDate(0, 0, 1),
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
+	// Lifting workouts carry a percentage table off their linked lift, which is
+	// the whole point of seeing them on the day.
+	var sessions []*common.SessionResult
+	if todays != nil {
+		sessions = todays.Results
+		for _, s := range sessions {
+			for _, wr := range s.Workouts {
+				enrichLiftingWorkout(wr, h.liftService, userId)
+			}
+		}
+	}
+
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
-	sessions, _ := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId})
 
 	data := map[string]interface{}{
-		"RecentLogs":    nil,
-		"RecentResults": nil,
-		"Lifts":         nil,
-		"Workouts":      nil,
-		"Sessions":      nil,
-		"Categories":    entities.ValidLiftCategories(),
-		"WorkoutTypes":  entities.ValidWorkoutTypes(),
-		"Today":         time.Now().Format("2006-01-02"),
-	}
-	if recentLogs != nil {
-		data["RecentLogs"] = recentLogs.Results
-	}
-	if recentResults != nil {
-		data["RecentResults"] = recentResults.Results
-	}
-	if lifts != nil {
-		data["Lifts"] = lifts.Results
+		"Sessions":  sessions,
+		"Workouts":  nil,
+		"TodayText": day.Format("Monday, January 2"),
+		// Heads the page when the day isn't today; the full date sits right
+		// above it, so the weekday alone is unambiguous enough.
+		"WeekdayText": day.Format("Monday"),
+		// Neighbouring days for the arrows and the swipe gesture. Both directions
+		// are always offered: an empty day is a normal thing to land on, and is
+		// where you plan one.
+		"PrevDate": day.AddDate(0, 0, -1).Format(sessionDateLayout),
+		"NextDate": day.AddDate(0, 0, 1).Format(sessionDateLayout),
+		"IsToday":  day.Equal(today),
+		// Planning from this page should plan the day being looked at, not today.
+		"FormDate": day.Format(sessionDateLayout),
+		// Lets the template suppress an auto-generated session name, which
+		// would otherwise just repeat the date already in the page heading.
+		"DefaultName":   defaultSessionName(day),
+		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results
 	}
-	if sessions != nil {
-		data["Sessions"] = sessions.Results
-	}
 
-	h.templates.ExecuteTemplate(w, "dashboard.html", data)
+	h.templates.ExecuteTemplate(w, "today.html", data)
 }
 
-func (h *DashboardHandler) Search(w http.ResponseWriter, r *http.Request) {
+// Results renders lifts and workouts in one filterable list. They were
+// previously two separate tabs, but from the user's point of view both are just
+// "things I have results for".
+func (h *DashboardHandler) Results(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
+
+	kind := r.URL.Query().Get("kind")
+	switch kind {
+	case "lifts", "workouts":
+		// accepted
+	default:
+		kind = "all"
+	}
 	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 
-	if q == "" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
+	var lifts []*common.LiftResult
+	var workouts []*common.WorkoutResult
 
-	var matchedLifts []*common.LiftResult
-	var matchedWorkouts []*common.WorkoutResult
-	var matchedSessions []*common.SessionResult
-
-	if lifts, err := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId}); err == nil && lifts != nil {
-		for _, l := range lifts.Results {
-			if strings.Contains(strings.ToLower(l.Name), q) || strings.Contains(strings.ToLower(l.Category), q) {
-				matchedLifts = append(matchedLifts, l)
+	if kind != "workouts" {
+		if res, err := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId}); err == nil && res != nil {
+			for _, l := range res.Results {
+				if matchesQuery(q, l.Name, l.Category) {
+					lifts = append(lifts, l)
+				}
 			}
 		}
 	}
 
-	if workouts, err := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId}); err == nil && workouts != nil {
-		for _, w := range workouts.Results {
-			if strings.Contains(strings.ToLower(w.Name), q) || strings.Contains(strings.ToLower(w.Type), q) {
-				matchedWorkouts = append(matchedWorkouts, w)
-			}
-		}
-	}
+	// Lifting workouts are auto-titled from a lift plus a date, so they'd bury
+	// the real workouts in noise; the lift itself already appears in this list.
+	// Kept reachable via ?include_lifting=1, as on the old workouts page.
+	includeLifting := r.URL.Query().Get("include_lifting") == "1"
 
-	if sessions, err := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId}); err == nil && sessions != nil {
-		for _, s := range sessions.Results {
-			if strings.Contains(strings.ToLower(s.Name), q) || strings.Contains(strings.ToLower(s.Warmup), q) {
-				matchedSessions = append(matchedSessions, s)
+	if kind != "lifts" {
+		if res, err := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId}); err == nil && res != nil {
+			for _, wo := range res.Results {
+				if !includeLifting && wo.Type == string(entities.WorkoutTypeLifting) {
+					continue
+				}
+				if matchesQuery(q, wo.Name, wo.Type, wo.Description) {
+					workouts = append(workouts, wo)
+				}
 			}
 		}
 	}
 
 	data := map[string]interface{}{
-		"Lifts":    matchedLifts,
-		"Workouts": matchedWorkouts,
-		"Sessions": matchedSessions,
+		"Lifts":          lifts,
+		"Workouts":       workouts,
+		"Kind":           kind,
+		"Query":          r.URL.Query().Get("q"),
+		"Filtered":       q != "" || kind != "all",
+		"IncludeLifting": includeLifting,
+		"Categories":     entities.ValidLiftCategories(),
+		"WorkoutTypes":   entities.ValidWorkoutTypes(),
+		"Today":          time.Now().Format(sessionDateLayout),
 	}
-	h.templates.ExecuteTemplate(w, "search_results.html", data)
+
+	// The filter posts back over htmx, so re-render just the list when asked.
+	if r.Header.Get("HX-Request") == "true" {
+		h.templates.ExecuteTemplate(w, "results_list", data)
+		return
+	}
+	h.templates.ExecuteTemplate(w, "results.html", data)
+}
+
+// matchesQuery reports whether any of the given fields contains q. An empty
+// query matches everything.
+func matchesQuery(q string, fields ...string) bool {
+	if q == "" {
+		return true
+	}
+	for _, f := range fields {
+		if strings.Contains(strings.ToLower(f), q) {
+			return true
+		}
+	}
+	return false
 }

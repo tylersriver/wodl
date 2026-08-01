@@ -30,44 +30,6 @@ func NewWorkoutHandler(workoutService *services.WorkoutService, liftService *ser
 	return &WorkoutHandler{workoutService: workoutService, liftService: liftService, templates: templates}
 }
 
-func (h *WorkoutHandler) List(w http.ResponseWriter, r *http.Request) {
-	userId := middleware.GetUserID(r)
-	result, err := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	lifts, _ := h.liftService.GetLiftsByUser(&query.GetLiftsByUserQuery{UserId: userId})
-
-	// Lifting workouts are excluded from the list by default since they're
-	// driven by their linked Lift's 1RM table rather than a standalone
-	// prescription; users can opt in with ?include_lifting=1.
-	includeLifting := r.URL.Query().Get("include_lifting") == "1"
-	visible := result.Results
-	if !includeLifting {
-		filtered := visible[:0:0]
-		for _, wr := range visible {
-			if wr.Type != string(entities.WorkoutTypeLifting) {
-				filtered = append(filtered, wr)
-			}
-		}
-		visible = filtered
-	}
-
-	data := map[string]interface{}{
-		"Workouts":       visible,
-		"WorkoutTypes":   entities.ValidWorkoutTypes(),
-		"ScoreTypes":     entities.ValidScoreTypes(),
-		"Lifts":          nil,
-		"IncludeLifting": includeLifting,
-		"Today":          time.Now().Format("2006-01-02"),
-	}
-	if lifts != nil {
-		data["Lifts"] = lifts.Results
-	}
-	h.templates.ExecuteTemplate(w, "workouts.html", data)
-}
-
 func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	userId := middleware.GetUserID(r)
@@ -95,7 +57,7 @@ func (h *WorkoutHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/workouts", http.StatusSeeOther)
+	http.Redirect(w, r, "/results?kind=workouts", http.StatusSeeOther)
 }
 
 func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
@@ -178,11 +140,11 @@ func (h *WorkoutHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", "/workouts")
+		w.Header().Set("HX-Redirect", "/results?kind=workouts")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	http.Redirect(w, r, "/workouts", http.StatusSeeOther)
+	http.Redirect(w, r, "/results?kind=workouts", http.StatusSeeOther)
 }
 
 func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {

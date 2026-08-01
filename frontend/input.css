@@ -1,0 +1,98 @@
+/*
+ * Stylesheet source for WODL.
+ *
+ * Basecoat is a plain-HTML/CSS port of the shadcn/ui design system, so we get
+ * shadcn's look without React or Radix. Tailwind scans the Go templates below
+ * and emits only the utilities they actually use, which keeps the committed
+ * app.css small enough to ship offline in the PWA.
+ *
+ * Rebuild after editing any template:  cd frontend && npm run build
+ */
+@import "tailwindcss";
+@import "basecoat-css";
+
+@source "../internal/interface/web/templates";
+
+@layer components {
+  /*
+   * The bottom tab bar sits over the home indicator on iPhones, so pad it by
+   * the safe-area inset and reserve matching space at the end of page content.
+   */
+  .tabbar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /*
+   * The bar is 4rem tall plus its border and the safe-area inset, so this
+   * reserves that much again with room to spare — the last thing on a page is
+   * often a Save button, and it has to be reachable, not just visible.
+   *
+   * Nothing in the markup may set padding-bottom on the same element: utilities
+   * live in a later layer than components, so a stray `py-6` silently wins this
+   * and drops the page's last control back under the bar. That is exactly what
+   * happened before, which is why the page shell now sets only `pt-6`.
+   */
+  .has-tabbar {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Above the small breakpoint the bar is hidden and the header nav takes over. */
+  @media (width >= 40rem) {
+    .has-tabbar {
+      padding-bottom: 2.5rem;
+    }
+  }
+
+  /*
+   * Phone keyboards zoom the viewport when a focused field's text is under
+   * 16px, which leaves the page scrolled sideways. Force 16px on every text
+   * entry so tapping a field never moves the page.
+   */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
+}
+
+/*
+ * On phones a centred dialog is an awkward reach, so `.sheet` re-anchors it to
+ * the bottom edge as a full-width sheet under the thumb.
+ *
+ * Deliberately left outside `@layer components`: unlayered rules outrank every
+ * layered one, and Basecoat centres `.dialog > *` from inside that same layer.
+ * The slide-up is a keyframe rather than a transition off `@starting-style`,
+ * because the build's CSS minifier drops the `@starting-style` wrapper while
+ * keeping the rule inside it, which would strand the sheet off-screen.
+ *
+ * `translate`/`scale` must be reset by name, not via `transform`: Tailwind v4
+ * emits `-translate-x-1/2` and `scale-95` as those standalone properties, so
+ * `transform: none` alone leaves the centring offset in place.
+ */
+@media (width < 40rem) {
+  .dialog.sheet > *,
+  .alert-dialog.sheet > * {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100% - 3rem);
+    translate: none;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .dialog.sheet[open] > *,
+  .alert-dialog.sheet[open] > * {
+    animation: wodl-sheet-up 200ms ease-out;
+  }
+}
+
+@keyframes wodl-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

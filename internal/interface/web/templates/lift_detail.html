@@ -1,157 +1,192 @@
 {{define "lift_detail.html"}}
 {{template "head" .}}
-<div class="space-y-6">
-    <div class="flex justify-between items-center">
-        <div>
-            <a href="/lifts" class="btn btn-ghost btn-sm">&larr; Back</a>
-            <h1 class="text-3xl font-bold mt-2">{{.Lift.Name}}</h1>
-            <span class="badge badge-outline">{{.Lift.Category}}</span>
-        </div>
-        <div class="flex gap-2">
-            <label for="edit-lift-modal" class="btn btn-outline btn-sm">Edit</label>
-            <button class="btn btn-error btn-sm"
-                hx-delete="/lifts/{{.Lift.Id}}"
-                hx-confirm="Delete this lift and all its logs?">Delete</button>
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-3">
+        <a href="/results?kind=lifts" class="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            All results
+        </a>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-col gap-1.5">
+                <h1 class="text-2xl font-semibold tracking-tight">{{.Lift.Name}}</h1>
+                <span class="badge w-fit" data-variant="secondary">{{.Lift.Category}}</span>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('edit-lift-modal')">Edit</button>
+                <button type="button" class="btn" data-variant="destructive" data-size="sm"
+                    hx-delete="/lifts/{{.Lift.Id}}"
+                    hx-confirm="Delete this lift and all its logs?">Delete</button>
+            </div>
         </div>
     </div>
 
     {{if .Lift.OneRepMax}}
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">1RM: {{printf "%.0f" (deref .Lift.OneRepMax)}}</h2>
-            <h3 class="font-semibold mt-2">Percentage Table</h3>
-            <div class="overflow-x-auto">
-                <table class="table table-sm table-zebra">
+    <div class="card bg-card gap-4 rounded-xl border p-5">
+        <div class="flex flex-col gap-1">
+            <span class="text-muted-foreground text-sm">Best single</span>
+            <span class="text-3xl font-semibold tabular-nums">{{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
+        </div>
+        <details class="group">
+            <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+                Percentages of your best single
+            </summary>
+            <div class="table-container mt-2 max-h-80 overflow-y-auto rounded-lg border">
+                <table class="table">
                     <thead>
-                        <tr><th>%</th><th>Weight</th></tr>
+                        <tr><th>%</th><th class="text-right">Weight</th></tr>
                     </thead>
                     <tbody>
                         {{range .PctKeys}}
                         <tr>
-                            <td>{{.}}%</td>
-                            <td>{{printf "%.1f" (index $.PercentageTable .)}}</td>
+                            <td class="tabular-nums">{{.}}%</td>
+                            <td class="text-right tabular-nums">{{printf "%.1f" (index $.PercentageTable .)}}</td>
                         </tr>
                         {{end}}
                     </tbody>
                 </table>
             </div>
-        </div>
+        </details>
     </div>
     {{end}}
 
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">Log a Set</h2>
-            <form method="POST" action="/lifts/{{.Lift.Id}}/logs" class="space-y-3">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Weight</span></label>
-                        <input type="number" name="weight" class="input input-bordered input-sm" step="0.5" required
-                            hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
-                            hx-include="[name='reps']" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Reps</span></label>
-                        <input type="number" name="reps" class="input input-bordered input-sm" min="1" required
-                            hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
-                            hx-include="[name='weight']" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">Sets</span></label>
-                        <input type="number" name="sets" class="input input-bordered input-sm" min="1" value="1" />
-                    </div>
-                    <div class="form-control">
-                        <label class="label"><span class="label-text">RPE</span></label>
-                        <input type="number" name="rpe" class="input input-bordered input-sm" min="1" max="10" step="0.5" />
-                    </div>
+    <div class="card bg-card gap-4 rounded-xl border p-5">
+        <h2 class="font-semibold">Log a set</h2>
+        <form method="POST" action="/lifts/{{.Lift.Id}}/logs" class="flex flex-col gap-4">
+            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div class="field">
+                    <label for="log-weight">Weight</label>
+                    <input type="number" id="log-weight" name="weight" step="0.5" required inputmode="decimal"
+                        hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
+                        hx-include="[name='reps']" />
                 </div>
-                <div class="text-sm text-base-content/70">
-                    Estimated 1RM: <span id="est-1rm" class="font-bold">--</span>
+                <div class="field">
+                    <label for="log-reps">Reps</label>
+                    <input type="number" id="log-reps" name="reps" min="1" required inputmode="numeric"
+                        hx-get="/api/1rm-calc" hx-trigger="input changed delay:300ms" hx-target="#est-1rm"
+                        hx-include="[name='weight']" />
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Notes</span></label>
-                    <input type="text" name="notes" class="input input-bordered input-sm" />
+                <div class="field">
+                    <label for="log-sets">Sets</label>
+                    <input type="number" id="log-sets" name="sets" min="1" value="1" inputmode="numeric" />
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm">Log Set</button>
-            </form>
-        </div>
+                <div class="field">
+                    <label for="log-rpe">RPE</label>
+                    <input type="number" id="log-rpe" name="rpe" min="1" max="10" step="0.5" inputmode="decimal" />
+                </div>
+            </div>
+            <p class="text-muted-foreground text-sm">
+                Estimated best single: <span id="est-1rm" class="text-foreground font-semibold tabular-nums">--</span>
+            </p>
+            <div class="field">
+                <label for="log-notes">Notes</label>
+                <input type="text" id="log-notes" name="notes" />
+            </div>
+            <button type="submit" class="btn w-full sm:w-fit" data-size="lg">Log set</button>
+        </form>
     </div>
 
     {{if .Logs}}
-    <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-            <h2 class="card-title">Log History</h2>
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Weight</th>
-                            <th>Reps</th>
-                            <th>Sets</th>
-                            <th>RPE</th>
-                            <th>Est 1RM</th>
-                            <th>% of 1RM</th>
-                            <th>Notes</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .Logs}}
-                        <tr>
-                            <td>{{.LoggedAt.Format "Jan 2, 2006"}}</td>
-                            <td>{{printf "%.1f" .Weight}}</td>
-                            <td>{{.Reps}}</td>
-                            <td>{{.Sets}}</td>
-                            <td>{{if .RPE}}{{printf "%.1f" (deref .RPE)}}{{else}}-{{end}}</td>
-                            <td>{{printf "%.1f" .Estimated1RM}}</td>
-                            <td>{{if .PercentOf1RM}}{{printf "%.0f" (deref .PercentOf1RM)}}%{{else}}-{{end}}</td>
-                            <td>{{.Notes}}</td>
-                            <td>
-                                <button class="btn btn-ghost btn-xs text-error"
-                                    hx-delete="/lifts/{{$.Lift.Id}}/logs/{{.Id}}"
-                                    hx-confirm="Delete this log entry?">X</button>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-            </div>
+    <div class="card bg-card gap-4 rounded-xl border p-5">
+        <h2 class="font-semibold">History</h2>
+
+        <!-- Phones get one card per entry; the nine-column table only fits from sm up. -->
+        <ul class="flex flex-col gap-3 sm:hidden">
+            {{range .Logs}}
+            <li class="flex flex-col gap-2 rounded-lg border p-3">
+                <div class="flex items-start justify-between gap-2">
+                    <span class="font-medium tabular-nums">{{printf "%.1f" .Weight}} &times; {{.Reps}}{{if gt .Sets 1}} &times; {{.Sets}} sets{{end}}</span>
+                    <button type="button" class="btn shrink-0" data-variant="ghost" data-size="sm"
+                        hx-delete="/lifts/{{$.Lift.Id}}/logs/{{.Id}}"
+                        hx-confirm="Delete this log entry?" aria-label="Delete entry">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <div class="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                    <span>{{.LoggedAt.Format "Jan 2, 2006"}}</span>
+                    <span>est {{printf "%.1f" .Estimated1RM}}</span>
+                    {{if .RPE}}<span>RPE {{printf "%.1f" (deref .RPE)}}</span>{{end}}
+                    {{if .PercentOf1RM}}<span>{{printf "%.0f" (deref .PercentOf1RM)}}% of best</span>{{end}}
+                </div>
+                {{if .Notes}}<p class="text-muted-foreground text-sm">{{.Notes}}</p>{{end}}
+            </li>
+            {{end}}
+        </ul>
+
+        <div class="table-container hidden overflow-x-auto rounded-lg border sm:block">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Weight</th>
+                        <th>Reps</th>
+                        <th>Sets</th>
+                        <th>RPE</th>
+                        <th>Est</th>
+                        <th>%</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Logs}}
+                    <tr>
+                        <td class="whitespace-nowrap">{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                        <td class="tabular-nums">{{printf "%.1f" .Weight}}</td>
+                        <td class="tabular-nums">{{.Reps}}</td>
+                        <td class="tabular-nums">{{.Sets}}</td>
+                        <td class="tabular-nums">{{if .RPE}}{{printf "%.1f" (deref .RPE)}}{{else}}-{{end}}</td>
+                        <td class="tabular-nums">{{printf "%.1f" .Estimated1RM}}</td>
+                        <td class="tabular-nums">{{if .PercentOf1RM}}{{printf "%.0f" (deref .PercentOf1RM)}}%{{else}}-{{end}}</td>
+                        <td>{{.Notes}}</td>
+                        <td>
+                            <button type="button" class="btn" data-variant="ghost" data-size="sm"
+                                hx-delete="/lifts/{{$.Lift.Id}}/logs/{{.Id}}"
+                                hx-confirm="Delete this log entry?" aria-label="Delete entry">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
         </div>
     </div>
     {{end}}
 </div>
 
-<input type="checkbox" id="edit-lift-modal" class="modal-toggle" />
-<div class="modal modal-bottom sm:modal-middle">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg">Edit Lift</h3>
-        <form method="POST" action="/lifts/{{.Lift.Id}}" class="space-y-4 mt-4">
-            <input type="hidden" name="_method" value="PUT" />
-            <div class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" value="{{.Lift.Name}}" required />
+<dialog id="edit-lift-modal" class="dialog sheet" aria-labelledby="edit-lift-title"
+        onclick="if (event.target === this) this.close()">
+    <form method="POST" action="/lifts/{{.Lift.Id}}" class="bg-card w-full max-w-md gap-0 rounded-xl border shadow-lg">
+        <input type="hidden" name="_method" value="PUT" />
+        <header class="gap-1.5 p-6 pb-4">
+            <h2 id="edit-lift-title" class="text-lg font-semibold">Edit lift</h2>
+        </header>
+        <section class="flex flex-col gap-4 overflow-y-auto px-6">
+            <div class="field">
+                <label for="edit-lift-name">Name</label>
+                <input type="text" id="edit-lift-name" name="name" value="{{.Lift.Name}}" required />
             </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Category</span></label>
-                <select name="category" class="select select-bordered">
+            <div class="field">
+                <label for="edit-lift-category">Category</label>
+                <select id="edit-lift-category" name="category">
                     {{range $.Categories}}
                     <option value="{{.}}" {{if eq (printf "%s" .) $.Lift.Category}}selected{{end}}>{{.}}</option>
                     {{end}}
                 </select>
             </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">1RM</span></label>
-                <input type="number" name="one_rep_max" class="input input-bordered" step="0.5"
+            <div class="field">
+                <label for="edit-lift-1rm">Best single</label>
+                <input type="number" id="edit-lift-1rm" name="one_rep_max" step="0.5" inputmode="decimal"
                     {{if .Lift.OneRepMax}}value="{{printf "%.1f" (deref .Lift.OneRepMax)}}"{{end}} />
             </div>
-            <div class="modal-action">
-                <label for="edit-lift-modal" class="btn">Cancel</label>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </div>
-        </form>
-    </div>
-    <label class="modal-backdrop" for="edit-lift-modal"></label>
-</div>
+        </section>
+        <footer class="gap-2 p-6">
+            <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn w-full sm:w-auto">Save</button>
+        </footer>
+    </form>
+</dialog>
+{{template "dialog_script" .}}
 {{template "tail" .}}
 {{end}}

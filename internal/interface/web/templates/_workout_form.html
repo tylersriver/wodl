@@ -1,64 +1,66 @@
 {{define "workout_form"}}
-<input type="checkbox" id="create-workout-modal" class="modal-toggle" />
-<div class="modal modal-bottom sm:modal-middle">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg">Add New Workout</h3>
-        <form method="POST" action="/workouts" class="space-y-4 mt-4">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Type</span></label>
-                <select name="type" class="select select-bordered" onchange="toggleLiftingFields(this, 'create')">
+<dialog id="create-workout-modal" class="dialog sheet" aria-labelledby="create-workout-title"
+        onclick="if (event.target === this) this.close()">
+    <form method="POST" action="/workouts" class="bg-card w-full max-w-md gap-0 rounded-xl border shadow-lg">
+        <header class="gap-1.5 p-6 pb-4">
+            <h2 id="create-workout-title" class="text-lg font-semibold">Add a workout</h2>
+            <p class="text-muted-foreground text-sm">A workout you can log again and again, like Fran.</p>
+        </header>
+        <section class="flex flex-col gap-4 overflow-y-auto px-6">
+            <div class="field">
+                <label for="create-type">Type</label>
+                <select id="create-type" name="type" onchange="toggleLiftingFields(this, 'create')">
                     {{range .WorkoutTypes}}
                     <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
             </div>
-            <div id="create-name-field" class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Fran" />
+            <div id="create-name-field" class="field">
+                <label for="create-name">Name</label>
+                <input type="text" id="create-name" name="name" placeholder="e.g. Fran" />
             </div>
-            <div id="create-lifting-fields" class="border-l-2 border-primary/40 pl-3 space-y-3 hidden">
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Lift</span></label>
-                    <select name="lift_id" class="select select-bordered select-sm">
+            <div id="create-lifting-fields" class="border-muted flex hidden flex-col gap-4 border-l-2 pl-4">
+                <div class="field">
+                    <label for="create-lift">Lift</label>
+                    <select id="create-lift" name="lift_id">
                         <option value="">(none)</option>
                         {{range .Lifts}}
                         <option value="{{.Id}}">{{.Name}}</option>
                         {{end}}
                     </select>
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Date</span></label>
-                    <input type="date" name="date" class="input input-bordered input-sm" value="{{.Today}}" />
-                    <p class="text-xs text-base-content/50 mt-1">Title is generated from the lift and date.</p>
+                <div class="field">
+                    <label for="create-date">Date</label>
+                    <input type="date" id="create-date" name="date" value="{{.Today}}" />
+                    <p class="text-muted-foreground text-sm">The name is built from the lift and date.</p>
                 </div>
             </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Description</span></label>
-                <textarea name="description" class="textarea textarea-bordered" rows="4"
+            <div class="field">
+                <label for="create-description">Description</label>
+                <textarea id="create-description" name="description" rows="4"
                     placeholder="21-15-9&#10;Thrusters (95/65)&#10;Pull-ups"></textarea>
             </div>
-            <div class="grid grid-cols-3 gap-3">
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Time Cap (min)</span></label>
-                    <input type="number" name="time_cap" class="input input-bordered input-sm" min="0" />
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="field">
+                    <label for="create-time-cap">Time cap <span class="text-muted-foreground font-normal">(min)</span></label>
+                    <input type="number" id="create-time-cap" name="time_cap" min="0" inputmode="numeric" />
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Rounds</span></label>
-                    <input type="number" name="rounds" class="input input-bordered input-sm" />
+                <div class="field">
+                    <label for="create-rounds">Rounds</label>
+                    <input type="number" id="create-rounds" name="rounds" inputmode="numeric" />
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Interval (sec)</span></label>
-                    <input type="number" name="interval_seconds" class="input input-bordered input-sm" min="0" />
+                <div class="field">
+                    <label for="create-interval">Interval <span class="text-muted-foreground font-normal">(sec)</span></label>
+                    <input type="number" id="create-interval" name="interval_seconds" min="0" inputmode="numeric" />
                 </div>
             </div>
-            <div class="modal-action">
-                <label for="create-workout-modal" class="btn">Cancel</label>
-                <button type="submit" class="btn btn-secondary">Create</button>
-            </div>
-        </form>
-    </div>
-    <label class="modal-backdrop" for="create-workout-modal"></label>
-</div>
+        </section>
+        <footer class="gap-2 p-6">
+            <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn w-full sm:w-auto">Add workout</button>
+        </footer>
+    </form>
+</dialog>
 
 <script>
 // toggleLiftingFields hides/shows the lift+date block and toggles the plain

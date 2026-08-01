@@ -1,0 +1,73 @@
+{{define "import.html"}}
+{{template "head" .}}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+        <a href="/sessions" class="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Sessions
+        </a>
+        <h1 class="text-2xl font-semibold tracking-tight">Import from a photo</h1>
+        <p class="text-muted-foreground text-sm">Upload a screenshot or photo of the day's programming and we'll fill in the session for you to check.</p>
+    </div>
+
+    {{if .Error}}
+    <div class="alert" data-variant="destructive" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <h2>{{.Error}}</h2>
+    </div>
+    {{end}}
+
+    <!--
+      Reading the images takes a few seconds, so the submit button switches to a
+      pending state rather than leaving the page looking unresponsive.
+    -->
+    <form method="POST" action="/import/extract" enctype="multipart/form-data" class="flex flex-col gap-5" id="import-form">
+        <div class="field">
+            <label for="import-images">Images</label>
+            <input type="file" id="import-images" name="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple required />
+            <p class="text-muted-foreground text-sm">You can pick more than one — the lifting piece and the metcon are often separate screenshots of the same day.</p>
+        </div>
+
+        <div id="import-preview" class="hidden grid-cols-2 gap-3 sm:grid-cols-3"></div>
+
+        <button type="submit" class="btn w-full sm:w-fit" data-size="lg" id="import-submit">
+            <span class="import-idle">Read the images</span>
+            <span class="import-busy hidden">Reading…</span>
+        </button>
+        <p class="text-muted-foreground text-sm">Nothing is saved yet. You'll see what we read and can fix it before anything is added.</p>
+    </form>
+</div>
+
+<script>
+(function () {
+    var input = document.getElementById('import-images');
+    var preview = document.getElementById('import-preview');
+    var form = document.getElementById('import-form');
+    var submit = document.getElementById('import-submit');
+
+    // Thumbnails confirm the right screenshots were picked before spending a
+    // request on them.
+    input.addEventListener('change', function () {
+        preview.innerHTML = '';
+        var files = Array.prototype.slice.call(input.files || []);
+        preview.classList.toggle('hidden', files.length === 0);
+        preview.classList.toggle('grid', files.length > 0);
+        files.forEach(function (file) {
+            var img = document.createElement('img');
+            img.className = 'aspect-square w-full rounded-lg border object-cover';
+            img.alt = file.name;
+            img.src = URL.createObjectURL(file);
+            img.onload = function () { URL.revokeObjectURL(img.src); };
+            preview.appendChild(img);
+        });
+    });
+
+    form.addEventListener('submit', function () {
+        submit.disabled = true;
+        submit.querySelector('.import-idle').classList.add('hidden');
+        submit.querySelector('.import-busy').classList.remove('hidden');
+    });
+})();
+</script>
+{{template "tail" .}}
+{{end}}

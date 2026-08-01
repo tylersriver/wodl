@@ -1,46 +1,48 @@
 {{define "register.html"}}
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WODL - Register</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#1d232a" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="WODL" />
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{asset "app.css"}}" />
 </head>
-<body class="min-h-screen bg-base-200 flex items-start sm:items-center justify-center p-4 sm:p-6">
+<body class="bg-muted/40 flex min-h-screen items-start justify-center p-4 sm:items-center sm:p-6">
     <div class="w-full max-w-sm">
-        <div class="space-y-4 sm:bg-base-100 sm:shadow-xl sm:rounded-box sm:p-8">
-            <div class="text-center">
-                <h2 class="text-3xl font-bold">WODL</h2>
-                <p class="text-base-content/70 mt-1">Create your account</p>
-            </div>
-            {{if .Error}}
-            <div class="alert alert-error">
-                <span>{{.Error}}</span>
-            </div>
-            {{end}}
-            <form method="POST" action="/register" class="space-y-4">
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Display Name</span></label>
-                    <input type="text" name="display_name" class="input input-bordered" required autocomplete="name" />
+        <div class="card bg-card sm:border sm:shadow-sm">
+            <header class="gap-1 p-6 pb-2 text-center">
+                <h1 class="text-2xl font-semibold tracking-tight">WODL</h1>
+                <p class="text-muted-foreground text-sm">Create your account</p>
+            </header>
+            <section class="flex flex-col gap-4 p-6">
+                {{if .Error}}
+                <div class="alert" data-variant="destructive" role="alert">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                    <h2>{{.Error}}</h2>
                 </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text">Email</span></label>
-                    <input type="email" name="email" class="input input-bordered" required autocomplete="email" />
-                </div>
-                {{template "password_field" (dict "Name" "password" "Autocomplete" "new-password" "MinLength" 8)}}
-                <button type="submit" class="btn btn-primary w-full">Register</button>
-            </form>
-            <p class="text-center">
-                Already have an account? <a href="/login" class="link link-primary">Login</a>
-            </p>
+                {{end}}
+                <form method="POST" action="/register" class="flex flex-col gap-4">
+                    <div class="field">
+                        <label for="display_name">Display name</label>
+                        <input type="text" id="display_name" name="display_name" required autocomplete="name" />
+                    </div>
+                    <div class="field">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required autocomplete="email" />
+                    </div>
+                    {{template "password_field" (dict "Name" "password" "Autocomplete" "new-password" "MinLength" 8)}}
+                    <button type="submit" class="btn w-full" data-size="lg">Create account</button>
+                </form>
+                <p class="text-muted-foreground text-center text-sm">
+                    Already have an account? <a href="/login" class="text-foreground font-medium underline underline-offset-4">Log in</a>
+                </p>
+            </section>
         </div>
     </div>
     {{template "password_reveal_script" .}}

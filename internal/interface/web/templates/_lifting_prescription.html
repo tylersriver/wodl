@@ -1,41 +1,50 @@
 {{define "lifting_prescription"}}
 {{if eq .Type "lifting"}}
-<div class="space-y-2">
+<div class="flex flex-col gap-3">
     {{if .Lift}}
-    <div class="flex items-center gap-2 text-sm">
-        <span class="text-base-content/60">Lift:</span>
-        <a href="/lifts/{{.Lift.Id}}" class="link font-semibold">{{.Lift.Name}}</a>
-        <span class="badge badge-outline badge-sm">{{.Lift.Category}}</span>
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+        <a href="/lifts/{{.Lift.Id}}" class="font-medium underline underline-offset-4">{{.Lift.Name}}</a>
+        <span class="badge" data-variant="outline">{{.Lift.Category}}</span>
         {{if .Lift.OneRepMax}}
-        <span class="badge badge-primary badge-sm">1RM {{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
+        <span class="badge" data-variant="secondary">best {{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
         {{end}}
     </div>
     {{if .PctKeys}}
-    <div class="overflow-x-auto">
-        <table class="table table-xs table-zebra">
-            <thead>
-                <tr><th>%</th><th>Weight</th></tr>
-            </thead>
-            <tbody>
-                {{$table := .PercentageTable}}
-                {{range .PctKeys}}
-                <tr>
-                    <td>{{.}}%</td>
-                    <td>{{printf "%.1f" (index $table .)}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-    </div>
+    <details class="group">
+        <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+            Percentages
+        </summary>
+        <div class="table-container mt-2 max-h-72 overflow-y-auto rounded-lg border">
+            <table class="table">
+                <thead>
+                    <tr><th>%</th><th class="text-right">Weight</th></tr>
+                </thead>
+                <tbody>
+                    {{$table := .PercentageTable}}
+                    {{range .PctKeys}}
+                    <tr>
+                        <td class="tabular-nums">{{.}}%</td>
+                        <td class="text-right tabular-nums">{{printf "%.1f" (index $table .)}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </details>
     {{else if .Lift.OneRepMax}}
-    {{/* 1RM is known but table wasn't computed — nothing to render. */}}
+    {{/* Best single is known but table wasn't computed — nothing to render. */}}
     {{else}}
-    <p class="text-xs text-base-content/50">This lift has no 1RM set yet. <a href="/lifts/{{.Lift.Id}}" class="link">Add one</a> to see a percentage table.</p>
+    <p class="text-muted-foreground text-sm">
+        No best single recorded yet.
+        <a href="/lifts/{{.Lift.Id}}" class="text-foreground font-medium underline underline-offset-4">Add one</a>
+        to see a percentage table.
+    </p>
     {{end}}
     {{else if .LiftId}}
-    <p class="text-xs text-base-content/50">Linked lift is no longer available.</p>
+    <p class="text-muted-foreground text-sm">Linked lift is no longer available.</p>
     {{else}}
-    <p class="text-xs text-base-content/50">No lift selected.</p>
+    <p class="text-muted-foreground text-sm">No lift selected.</p>
     {{end}}
 </div>
 {{end}}

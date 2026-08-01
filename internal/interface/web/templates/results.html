@@ -1,0 +1,115 @@
+{{define "results.html"}}
+{{template "head" .}}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-semibold tracking-tight">Results</h1>
+        <div class="flex gap-2">
+            <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-lift-modal')">Add lift</button>
+            <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-workout-modal')">Add workout</button>
+        </div>
+    </div>
+
+    <!--
+      The filter re-renders only the list over htmx, so typing never reloads the
+      page. hx-push-url keeps the URL shareable and the back button working.
+    -->
+    <form class="flex flex-col gap-3"
+          hx-get="/results"
+          hx-target="#results-list"
+          hx-trigger="input changed delay:200ms, change, search"
+          hx-push-url="true">
+        <!--
+          Search and the type filter share a row: they are one question ("which
+          of these do I want to see"), and the filter is a native select so the
+          phone gives it a proper picker instead of three targets competing for
+          width. aria-label rather than a visually hidden <label>, so there is
+          nothing to accidentally un-hide.
+        -->
+        <div class="flex items-center gap-3">
+            <input type="search" name="q" value="{{.Query}}" placeholder="Search by name"
+                   class="input min-w-0 flex-1" autocomplete="off" />
+            <select name="kind" class="select w-auto shrink-0" aria-label="Filter by type">
+                <option value="all" {{if eq .Kind "all"}}selected{{end}}>Everything</option>
+                <option value="lifts" {{if eq .Kind "lifts"}}selected{{end}}>Lifts</option>
+                <option value="workouts" {{if eq .Kind "workouts"}}selected{{end}}>Workouts</option>
+            </select>
+        </div>
+
+        {{if ne .Kind "lifts"}}
+        <label class="text-muted-foreground flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+            <input type="checkbox" name="include_lifting" value="1" class="input" {{if .IncludeLifting}}checked{{end}} />
+            Include the per-day lifting entries
+        </label>
+        {{end}}
+    </form>
+
+    <div id="results-list">
+        {{template "results_list" .}}
+    </div>
+</div>
+
+{{template "lift_form" .}}
+{{template "workout_form" .}}
+{{template "dialog_script" .}}
+{{template "tail" .}}
+{{end}}
+
+{{define "results_list"}}
+{{if or .Lifts .Workouts}}
+<div class="flex flex-col gap-6">
+    {{if .Lifts}}
+    <section class="flex flex-col gap-3">
+        <h2 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Lifts</h2>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {{range .Lifts}}
+            <a href="/lifts/{{.Id}}" class="card bg-card hover:bg-accent/50 flex-row items-center justify-between gap-3 rounded-xl border p-4 transition-colors">
+                <span class="flex flex-col gap-1.5">
+                    <span class="font-medium">{{.Name}}</span>
+                    <span class="badge w-fit" data-variant="secondary">{{.Category}}</span>
+                </span>
+                {{if .OneRepMax}}
+                <span class="flex flex-col items-end">
+                    <span class="text-xl font-semibold tabular-nums">{{printf "%.0f" (deref .OneRepMax)}}</span>
+                    <span class="text-muted-foreground text-xs">best single</span>
+                </span>
+                {{end}}
+            </a>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+
+    {{if .Workouts}}
+    <section class="flex flex-col gap-3">
+        <h2 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Workouts</h2>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {{range .Workouts}}
+            <a href="/workouts/{{.Id}}" class="card bg-card hover:bg-accent/50 gap-2 rounded-xl border p-4 transition-colors">
+                <span class="flex flex-wrap items-center gap-2">
+                    <span class="font-medium">{{.Name}}</span>
+                    <span class="badge" data-variant="secondary">{{.Type}}</span>
+                </span>
+                {{if .Description}}
+                <span class="text-muted-foreground line-clamp-2 text-sm">{{.Description}}</span>
+                {{end}}
+            </a>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+</div>
+{{else}}
+<div class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center">
+    {{if .Filtered}}
+    <p class="text-muted-foreground">Nothing matches that.</p>
+    <a href="/results" class="btn" data-variant="outline">Clear filters</a>
+    {{else}}
+    <p class="text-muted-foreground">No lifts or workouts yet.</p>
+    <div class="flex flex-col gap-2 sm:flex-row">
+        <button type="button" class="btn" onclick="openDialog('create-lift-modal')">Add a lift</button>
+        <button type="button" class="btn" data-variant="outline" onclick="openDialog('create-workout-modal')">Add a workout</button>
+    </div>
+    {{end}}
+</div>
+{{end}}
+{{end}}

@@ -27,26 +27,31 @@ type SessionHandler struct {
 	workoutService *services.WorkoutService
 	liftService    *services.LiftService
 	templates      *template.Template
+	importEnabled  bool
 }
 
-func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template) *SessionHandler {
+func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template, importEnabled bool) *SessionHandler {
 	return &SessionHandler{
 		sessionService: sessionService,
 		workoutService: workoutService,
 		liftService:    liftService,
 		templates:      templates,
+		importEnabled:  importEnabled,
 	}
 }
 
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
+	// Week is the default: programming is planned a week at a time, so the
+	// question this page usually answers is "what's on for the next few days"
+	// rather than "everything I have ever planned".
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "calendar", "week":
+	case "calendar", "list":
 		// accepted
 	default:
-		view = "list"
+		view = "week"
 	}
 
 	sessions, err := h.sessionService.GetSessionsByUser(&query.GetSessionsByUserQuery{UserId: userId})
@@ -62,6 +67,10 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		"Sessions": sessions.Results,
 		"Workouts": nil,
 		"Today":    time.Now().Format(sessionDateLayout),
+		// The list has no notion of a day being looked at, so a new session
+		// starts on today.
+		"FormDate":      time.Now().Format(sessionDateLayout),
+		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results
@@ -113,14 +122,19 @@ func (h *SessionHandler) Create(w http.ResponseWriter, r *http.Request) {
 			cmd.TotalTimeMinutes = &n
 		}
 	}
+	if cmd.Name == "" {
+		cmd.Name = defaultSessionName(cmd.Date)
+	}
 
-	_, err := h.sessionService.CreateSession(cmd)
+	created, err := h.sessionService.CreateSession(cmd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+	// Land on the day the session was assigned to, which is usually the plan
+	// the user is about to follow.
+	http.Redirect(w, r, sessionRedirectTarget(created.Result.Date), http.StatusSeeOther)
 }
 
 func (h *SessionHandler) Detail(w http.ResponseWriter, r *http.Request) {
@@ -148,9 +162,7 @@ func (h *SessionHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	dateStr := ""
 	orderedIds := make([]string, 0)
 	if result.Session != nil {
-		if result.Session.Date != nil {
-			dateStr = result.Session.Date.Format(sessionDateLayout)
-		}
+		dateStr = result.Session.Date.Format(sessionDateLayout)
 		for _, wr := range result.Session.Workouts {
 			orderedIds = append(orderedIds, wr.Id.String())
 		}
@@ -191,6 +203,9 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 			cmd.TotalTimeMinutes = &n
 		}
 	}
+	if cmd.Name == "" {
+		cmd.Name = defaultSessionName(cmd.Date)
+	}
 
 	if err := h.sessionService.UpdateSession(cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -221,56 +236,25 @@ func (h *SessionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 
-func (h *SessionHandler) CreateLog(w http.ResponseWriter, r *http.Request) {
-	userId := middleware.GetUserID(r)
-	sessionId, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
-		return
+// sessionRedirectTarget sends the user to the Today page when the session they
+// just saved is for today, and to the sessions list otherwise.
+func sessionRedirectTarget(date time.Time) string {
+	if date.Format(sessionDateLayout) == time.Now().Format(sessionDateLayout) {
+		return "/"
 	}
-
-	r.ParseForm()
-	performed := parseSessionDate(r.FormValue("performed_at"))
-	if performed == nil {
-		now := time.Now()
-		performed = &now
-	}
-
-	cmd := &command.CreateSessionLogCommand{
-		UserId:      userId,
-		SessionId:   sessionId,
-		PerformedAt: *performed,
-		Notes:       r.FormValue("notes"),
-	}
-
-	if _, err := h.sessionService.CreateSessionLog(cmd); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	http.Redirect(w, r, fmt.Sprintf("/sessions/%s", sessionId), http.StatusSeeOther)
+	return "/sessions"
 }
 
-func (h *SessionHandler) DeleteLog(w http.ResponseWriter, r *http.Request) {
-	userId := middleware.GetUserID(r)
-	logId, err := uuid.Parse(chi.URLParam(r, "logId"))
-	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
-		return
-	}
-	sessionId := chi.URLParam(r, "id")
+// defaultSessionName names an unnamed session after the day it is assigned to,
+// so the user never has to invent a title for "the workout on Tuesday".
+func defaultSessionName(date time.Time) string {
+	return date.Format("Mon, Jan 2")
+}
 
-	if err := h.sessionService.DeleteSessionLog(&command.DeleteSessionLogCommand{Id: logId, UserId: userId}); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", fmt.Sprintf("/sessions/%s", sessionId))
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/sessions/%s", sessionId), http.StatusSeeOther)
+// startOfDay is local midnight for the given time, which is where a day's
+// session range begins.
+func startOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // parseMonthParam returns the first-of-month time for a YYYY-MM input. Empty
@@ -290,10 +274,10 @@ func parseMonthParam(v string) (time.Time, error) {
 // CalendarDay is one cell in the month grid. If InMonth is false the day belongs
 // to the preceding or following month and is rendered greyed out.
 type CalendarDay struct {
-	Date    time.Time
-	InMonth bool
-	IsToday bool
-	Logs    []*common.SessionLogResult
+	Date     time.Time
+	InMonth  bool
+	IsToday  bool
+	Sessions []*common.SessionResult
 }
 
 // CalendarMonth holds everything the template needs to render a month view.
@@ -308,23 +292,13 @@ type CalendarMonth struct {
 
 func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart time.Time) (*CalendarMonth, error) {
 	// Range spans the 6-row grid we always render, so leading/trailing days
-	// from neighbouring months are included if they carry logs.
+	// from neighbouring months are included if they carry sessions.
 	gridStart := monthStart.AddDate(0, 0, -int(monthStart.Weekday()))
 	gridEnd := gridStart.AddDate(0, 0, 42)
 
-	logs, err := h.sessionService.GetSessionLogsInRange(&query.GetSessionLogsInRangeQuery{
-		UserId: userId,
-		Start:  gridStart,
-		End:    gridEnd,
-	})
+	byDay, err := h.sessionsByDay(userId, gridStart, gridEnd)
 	if err != nil {
 		return nil, err
-	}
-
-	byDay := map[string][]*common.SessionLogResult{}
-	for _, l := range logs.Results {
-		key := l.PerformedAt.In(time.Local).Format(sessionDateLayout)
-		byDay[key] = append(byDay[key], l)
 	}
 
 	today := time.Now().Format(sessionDateLayout)
@@ -335,10 +309,10 @@ func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart time.Time) (
 			day := gridStart.AddDate(0, 0, w*7+d)
 			key := day.Format(sessionDateLayout)
 			weeks[w][d] = CalendarDay{
-				Date:    day,
-				InMonth: day.Month() == monthStart.Month() && day.Year() == monthStart.Year(),
-				IsToday: key == today,
-				Logs:    byDay[key],
+				Date:     day,
+				InMonth:  day.Month() == monthStart.Month() && day.Year() == monthStart.Year(),
+				IsToday:  key == today,
+				Sessions: byDay[key],
 			}
 		}
 	}
@@ -384,19 +358,9 @@ type CalendarWeek struct {
 func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart time.Time) (*CalendarWeek, error) {
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	logs, err := h.sessionService.GetSessionLogsInRange(&query.GetSessionLogsInRangeQuery{
-		UserId: userId,
-		Start:  weekStart,
-		End:    weekEnd,
-	})
+	byDay, err := h.sessionsByDay(userId, weekStart, weekEnd)
 	if err != nil {
 		return nil, err
-	}
-
-	byDay := map[string][]*common.SessionLogResult{}
-	for _, l := range logs.Results {
-		key := l.PerformedAt.In(time.Local).Format(sessionDateLayout)
-		byDay[key] = append(byDay[key], l)
 	}
 
 	today := time.Now().Format(sessionDateLayout)
@@ -405,10 +369,10 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart time.Time) (*Cale
 		day := weekStart.AddDate(0, 0, i)
 		key := day.Format(sessionDateLayout)
 		days[i] = CalendarDay{
-			Date:    day,
-			InMonth: true,
-			IsToday: key == today,
-			Logs:    byDay[key],
+			Date:     day,
+			InMonth:  true,
+			IsToday:  key == today,
+			Sessions: byDay[key],
 		}
 	}
 
@@ -434,17 +398,35 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart time.Time) (*Cale
 	}, nil
 }
 
-// parseSessionDate parses a YYYY-MM-DD string from a form input; returns nil
-// when empty or malformed.
-func parseSessionDate(v string) *time.Time {
-	if v == "" {
-		return nil
-	}
-	t, err := time.ParseInLocation(sessionDateLayout, v, time.Local)
+// sessionsByDay buckets the sessions in [start, end) by their local calendar day.
+func (h *SessionHandler) sessionsByDay(userId uuid.UUID, start, end time.Time) (map[string][]*common.SessionResult, error) {
+	sessions, err := h.sessionService.GetSessionsInRange(&query.GetSessionsInRangeQuery{
+		UserId: userId,
+		Start:  start,
+		End:    end,
+	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &t
+
+	byDay := map[string][]*common.SessionResult{}
+	for _, s := range sessions.Results {
+		key := s.Date.In(time.Local).Format(sessionDateLayout)
+		byDay[key] = append(byDay[key], s)
+	}
+	return byDay, nil
+}
+
+// parseSessionDate parses a YYYY-MM-DD string from a form input, falling back to
+// today when it is missing or malformed. A session always belongs to a day.
+func parseSessionDate(v string) time.Time {
+	if v != "" {
+		if t, err := time.ParseInLocation(sessionDateLayout, v, time.Local); err == nil {
+			return t
+		}
+	}
+	now := time.Now()
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // parseWorkoutIds collects all workout_ids[] form values (in submission order)
