@@ -61,11 +61,14 @@ func SupportedMediaType(mediaType string) bool {
 	}
 }
 
-func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*common.ExtractedSession, error) {
+// buildParams assembles the request. Split out from Extract so a test can
+// validate the exact tool schema and image blocks against the API's validator
+// without spending a completion.
+func (e *Extractor) buildParams(images []common.BoardImage) (anthropic.MessageNewParams, error) {
 	blocks := make([]anthropic.ContentBlockParamUnion, 0, len(images)+1)
 	for _, img := range images {
 		if !SupportedMediaType(img.MediaType) {
-			return nil, fmt.Errorf("unsupported image type %q", img.MediaType)
+			return anthropic.MessageNewParams{}, fmt.Errorf("unsupported image type %q", img.MediaType)
 		}
 		blocks = append(blocks, anthropic.NewImageBlockBase64(
 			img.MediaType,
@@ -82,7 +85,7 @@ func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*c
 		InputSchema: sessionSchema(),
 	}
 
-	message, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
+	return anthropic.MessageNewParams{
 		Model:     extractModel,
 		MaxTokens: extractMaxTokens,
 		Thinking:  anthropic.ThinkingConfigParamUnion{OfAdaptive: &adaptive},
@@ -93,7 +96,16 @@ func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*c
 		Tools:        []anthropic.ToolUnionParam{{OfTool: &tool}},
 		ToolChoice:   anthropic.ToolChoiceParamOfTool(extractToolName),
 		Messages:     []anthropic.MessageParam{anthropic.NewUserMessage(blocks...)},
-	})
+	}, nil
+}
+
+func (e *Extractor) Extract(ctx context.Context, images []common.BoardImage) (*common.ExtractedSession, error) {
+	params, err := e.buildParams(images)
+	if err != nil {
+		return nil, err
+	}
+
+	message, err := e.client.Messages.New(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("reading the board: %w", err)
 	}
