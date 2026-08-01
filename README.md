@@ -51,9 +51,10 @@ curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_K
 ```
 
 Groq's free tier allows 8,000 tokens per minute, and images dominate that budget.
-Two full-resolution phone screenshots exceed it on their own, which is why uploads
-are scaled down before sending. If an import still reports "request too large",
-lower `GROQ_MAX_IMAGE_EDGE` (try `800`) or upload one image at a time.
+Two full-resolution phone screenshots exceed it on their own, so uploads are scaled
+down before sending and each image is sent as its own request, with the results
+merged back into one session. If an import still reports "request too large", lower
+`GROQ_MAX_IMAGE_EDGE` (try `800`) or upload fewer images at a time.
 
 ## Development
 

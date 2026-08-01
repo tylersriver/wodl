@@ -43,6 +43,9 @@ type GroqExtractor struct {
 	apiKey  string
 	model   string
 	maxEdge int
+	// baseURL is overridable so tests can drive the real request path against
+	// a local server instead of the live API.
+	baseURL string
 	client  *http.Client
 	now     func() time.Time
 }
@@ -64,6 +67,7 @@ func NewGroqExtractor(apiKey, model string, maxEdge int) *GroqExtractor {
 		apiKey:  apiKey,
 		model:   model,
 		maxEdge: maxEdge,
+		baseURL: groqBaseURL,
 		// A person is waiting on this call.
 		client: &http.Client{Timeout: 90 * time.Second},
 		now:    time.Now,
@@ -145,8 +149,43 @@ func (e *GroqExtractor) buildRequest(images []common.BoardImage) (*groqRequest, 
 	}, nil
 }
 
+// Extract sends one request per image and merges the results.
+//
+// A single request carrying every image is cheaper and lets the model relate
+// them, but Groq rejects any one request larger than the whole per-minute token
+// budget — two full screenshots exceed the free tier's 8,000 on their own.
+// Split across requests, each fits, and their sum usually still does. Each
+// screenshot is a self-contained piece of the day, so little is lost by reading
+// them separately; mergeExtractions recombines the header and the pieces.
+//
+// Sequential rather than concurrent: parallel calls would spend the minute's
+// budget simultaneously and are likelier to trip the same limit.
 func (e *GroqExtractor) Extract(ctx context.Context, images []common.BoardImage) (*common.ExtractedSession, error) {
-	payload, err := e.buildRequest(images)
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no images provided")
+	}
+
+	parts := make([]*common.ExtractedSession, 0, len(images))
+	for i, img := range images {
+		part, err := e.extractOne(ctx, img)
+		if err != nil {
+			if len(images) == 1 {
+				return nil, err
+			}
+			return nil, fmt.Errorf("image %d of %d: %w", i+1, len(images), err)
+		}
+		parts = append(parts, part)
+	}
+
+	merged := mergeExtractions(parts)
+	if len(merged.Workouts) == 0 {
+		return nil, fmt.Errorf("no session could be read from the image")
+	}
+	return merged, nil
+}
+
+func (e *GroqExtractor) extractOne(ctx context.Context, image common.BoardImage) (*common.ExtractedSession, error) {
+	payload, err := e.buildRequest([]common.BoardImage{image})
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +194,7 @@ func (e *GroqExtractor) Extract(ctx context.Context, images []common.BoardImage)
 		return nil, fmt.Errorf("preparing the request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, groqBaseURL+"/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -199,8 +238,9 @@ func rateLimitHint(message string) string {
 		!strings.Contains(m, "rate limit") {
 		return ""
 	}
-	return " — try fewer images at once, or lower GROQ_MAX_IMAGE_EDGE" +
-		" (currently sending images at most " + itoa(DefaultGroqMaxImageEdge) + "px on the long edge by default)"
+	// Images already go one per request, so the remaining lever is resolution.
+	return " — lower GROQ_MAX_IMAGE_EDGE (currently " + itoa(DefaultGroqMaxImageEdge) +
+		"px by default) or upload fewer images at once"
 }
 
 func itoa(v int) string { return fmt.Sprintf("%d", v) }

@@ -74,6 +74,11 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   models bill by pixel area and Groq's free tier is 8,000 tokens/minute, which two
   full-resolution screenshots exceed on their own. `shrinkToFit` leaves already-small
   images untouched rather than re-encoding them, and passes undecodable data through
+- Groq sends one request per image, sequentially, and `mergeExtractions` recombines them.
+  Groq rejects any single request larger than the whole per-minute budget, so batching
+  images fails outright where splitting them fits; running them in parallel would spend
+  the same minute's budget at once. The merge takes each field from the first image that
+  had it and dedupes workouts by name, since boards reprint their header across screenshots
 - Imported lifts and workouts are matched to existing ones by case-insensitive name so a
   repeated benchmark keeps one history; board wording (loads, "Score = Time", percentages
   of anything other than a 1RM) is kept verbatim in the description rather than reinterpreted

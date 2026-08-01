@@ -141,6 +141,50 @@ text. interval_seconds is in seconds, so "Every 1:30" is 90.`,
 	return b.String()
 }
 
+// mergeExtractions folds per-image results into one session, in image order.
+//
+// Boards are often split across screenshots — a header with the date on one, a
+// metcon on another — so each field is taken from the first image that had it,
+// and workouts are concatenated. Workouts repeated across images (a header
+// reprinted on both) are matched by name and kept once.
+func mergeExtractions(parts []*common.ExtractedSession) *common.ExtractedSession {
+	merged := &common.ExtractedSession{}
+	seen := map[string]bool{}
+
+	for _, part := range parts {
+		if part == nil {
+			continue
+		}
+		if merged.Name == "" {
+			merged.Name = part.Name
+		}
+		if merged.Date.IsZero() {
+			merged.Date = part.Date
+		}
+		if merged.Warmup == "" {
+			merged.Warmup = part.Warmup
+		}
+		if merged.TotalTimeMinutes == nil {
+			merged.TotalTimeMinutes = part.TotalTimeMinutes
+		}
+		for _, w := range part.Workouts {
+			key := normalizeKey(w.Name)
+			if key == "" || seen[key] {
+				continue
+			}
+			seen[key] = true
+			merged.Workouts = append(merged.Workouts, w)
+		}
+	}
+	return merged
+}
+
+// normalizeKey collapses case and whitespace so the same workout printed on two
+// screenshots isn't imported twice.
+func normalizeKey(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
 func enumValues[T ~string](values []T) []string {
 	out := make([]string, 0, len(values))
 	for _, v := range values {
