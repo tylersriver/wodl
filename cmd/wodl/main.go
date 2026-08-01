@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/tyler/wodl/internal/application/services"
+	"github.com/tyler/wodl/internal/infrastructure/ai"
 	"github.com/tyler/wodl/internal/infrastructure/auth"
 	"github.com/tyler/wodl/internal/infrastructure/db/sqlite"
 	"github.com/tyler/wodl/internal/infrastructure/middleware"
@@ -65,6 +66,18 @@ func main() {
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
 	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
 
+	// Image import is optional: without an API key the extractor is left nil
+	// and the feature hides itself. Assigned through a guard rather than
+	// directly, because a nil *ai.Extractor in the interface would still make
+	// the interface itself non-nil and defeat the Enabled() check.
+	var boardExtractor services.BoardExtractor
+	if extractor := ai.NewExtractor(os.Getenv("ANTHROPIC_API_KEY")); extractor != nil {
+		boardExtractor = extractor
+	} else {
+		log.Print("ANTHROPIC_API_KEY not set — importing sessions from images is disabled")
+	}
+	importService := services.NewImportService(boardExtractor, liftService, workoutService, sessionService)
+
 	// Templates
 	funcMap := template.FuncMap{
 		"deref": func(f *float64) float64 {
@@ -89,10 +102,11 @@ func main() {
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl, importService.Enabled())
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl, importService.Enabled())
+	importHandler := handlers.NewImportHandler(importService, tmpl)
 
 	// Router
 	r := chi.NewRouter()
@@ -154,6 +168,11 @@ func main() {
 		r.Get("/sessions/{id}", sessionHandler.Detail)
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
+
+		// Build a session from photos of a gym's programming.
+		r.Get("/import", importHandler.Page)
+		r.Post("/import/extract", importHandler.Extract)
+		r.Post("/import", importHandler.Create)
 
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})

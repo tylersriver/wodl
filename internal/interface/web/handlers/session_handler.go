@@ -27,14 +27,16 @@ type SessionHandler struct {
 	workoutService *services.WorkoutService
 	liftService    *services.LiftService
 	templates      *template.Template
+	importEnabled  bool
 }
 
-func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template) *SessionHandler {
+func NewSessionHandler(sessionService *services.SessionService, workoutService *services.WorkoutService, liftService *services.LiftService, templates *template.Template, importEnabled bool) *SessionHandler {
 	return &SessionHandler{
 		sessionService: sessionService,
 		workoutService: workoutService,
 		liftService:    liftService,
 		templates:      templates,
+		importEnabled:  importEnabled,
 	}
 }
 
@@ -58,10 +60,11 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
 
 	data := map[string]interface{}{
-		"View":     view,
-		"Sessions": sessions.Results,
-		"Workouts": nil,
-		"Today":    time.Now().Format(sessionDateLayout),
+		"View":          view,
+		"Sessions":      sessions.Results,
+		"Workouts":      nil,
+		"Today":         time.Now().Format(sessionDateLayout),
+		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results

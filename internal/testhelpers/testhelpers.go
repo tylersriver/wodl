@@ -24,10 +24,19 @@ type TestApp struct {
 	LiftService    *services.LiftService
 	WorkoutService *services.WorkoutService
 	SessionService *services.SessionService
+	ImportService  *services.ImportService
 	JWTService     *auth.JWTService
 }
 
 func NewTestApp(t *testing.T) *TestApp {
+	t.Helper()
+	return NewTestAppWithExtractor(t, nil)
+}
+
+// NewTestAppWithExtractor builds the app with a board extractor wired in, so
+// the image-import routes can be exercised without calling a real API. Pass nil
+// to leave the feature disabled, as it is in production without an API key.
+func NewTestAppWithExtractor(t *testing.T, extractor services.BoardExtractor) *TestApp {
 	t.Helper()
 
 	db, err := sqlite.NewDB(":memory:")
@@ -48,6 +57,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	liftService := services.NewLiftService(liftRepo, liftLogRepo)
 	workoutService := services.NewWorkoutService(workoutRepo, workoutResultRepo)
 	sessionService := services.NewSessionService(sessionRepo, workoutRepo)
+	importService := services.NewImportService(extractor, liftService, workoutService, sessionService)
 
 	funcMap := template.FuncMap{
 		"deref": func(f *float64) float64 {
@@ -84,10 +94,11 @@ func NewTestApp(t *testing.T) *TestApp {
 	)
 
 	authHandler := handlers.NewAuthHandler(authService, tmpl)
-	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl)
+	dashHandler := handlers.NewDashboardHandler(liftService, workoutService, sessionService, tmpl, importService.Enabled())
 	liftHandler := handlers.NewLiftHandler(liftService, tmpl)
 	workoutHandler := handlers.NewWorkoutHandler(workoutService, liftService, tmpl)
-	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl)
+	sessionHandler := handlers.NewSessionHandler(sessionService, workoutService, liftService, tmpl, importService.Enabled())
+	importHandler := handlers.NewImportHandler(importService, tmpl)
 
 	r := chi.NewRouter()
 	r.Use(methodOverride)
@@ -128,6 +139,10 @@ func NewTestApp(t *testing.T) *TestApp {
 		r.Put("/sessions/{id}", sessionHandler.Update)
 		r.Delete("/sessions/{id}", sessionHandler.Delete)
 
+		r.Get("/import", importHandler.Page)
+		r.Post("/import/extract", importHandler.Extract)
+		r.Post("/import", importHandler.Create)
+
 		r.Get("/api/1rm-calc", liftHandler.Calc1RM)
 	})
 
@@ -145,6 +160,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		LiftService:    liftService,
 		WorkoutService: workoutService,
 		SessionService: sessionService,
+		ImportService:  importService,
 		JWTService:     jwtService,
 	}
 }

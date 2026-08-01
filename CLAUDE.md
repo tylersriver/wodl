@@ -10,6 +10,9 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
 - Results are recorded against the individual **Lift** (sets) and **Workout** (scores).
 - The landing page (`/`) shows the session dated today; `/results` is the combined,
   filterable list of lifts and workouts.
+- A session can be built from photos of a gym's programming at `/import`. Extraction
+  and creation are separate steps on purpose: `/import/extract` only reads and renders
+  an editable review, and nothing is written until the user posts it back.
 
 ## Tech Stack
 - Go backend with chi router, SQLite (modernc.org/sqlite pure Go driver)
@@ -28,7 +31,7 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
 go build ./cmd/wodl     # Build
 go test ./...           # Run all tests
 go vet ./...            # Lint
-PORT=8080 ./wodl        # Run (also reads JWT_SECRET, DB_PATH env vars)
+PORT=8080 ./wodl        # Run (also reads JWT_SECRET, DB_PATH, ANTHROPIC_API_KEY env vars)
 docker compose up       # Run with Docker
 
 cd frontend && npm install && npm run build   # Rebuild static/app.css after editing templates
@@ -55,3 +58,11 @@ cd frontend && npm run watch                  # Same, rebuilding on change
 - Schema changes go in `runVersionedMigrations` in infrastructure/db/sqlite/db.go, gated on
   `PRAGMA user_version`. Anything dropped there must also be removed from `migrationSQL`,
   which runs on every startup and would otherwise recreate it
+- Image import needs `ANTHROPIC_API_KEY`. Without it the extractor is left nil,
+  `ImportService.Enabled()` is false and the feature hides itself — wire the port through
+  a guard, since a nil `*ai.Extractor` stored in the interface would still test non-nil
+- The AI vendor stays behind the `services.BoardExtractor` port; tests inject a stub via
+  `testhelpers.NewTestAppWithExtractor`, so the import flow is covered without network access
+- Imported lifts and workouts are matched to existing ones by case-insensitive name so a
+  repeated benchmark keeps one history; board wording (loads, "Score = Time", percentages
+  of anything other than a 1RM) is kept verbatim in the description rather than reinterpreted

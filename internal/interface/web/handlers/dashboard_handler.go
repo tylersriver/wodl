@@ -18,14 +18,18 @@ type DashboardHandler struct {
 	workoutService *services.WorkoutService
 	sessionService *services.SessionService
 	templates      *template.Template
+	// importEnabled gates the "import from a photo" entry point, which only
+	// works when an API key is configured.
+	importEnabled bool
 }
 
-func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, sessionService *services.SessionService, templates *template.Template) *DashboardHandler {
+func NewDashboardHandler(liftService *services.LiftService, workoutService *services.WorkoutService, sessionService *services.SessionService, templates *template.Template, importEnabled bool) *DashboardHandler {
 	return &DashboardHandler{
 		liftService:    liftService,
 		workoutService: workoutService,
 		sessionService: sessionService,
 		templates:      templates,
+		importEnabled:  importEnabled,
 	}
 }
 
@@ -69,7 +73,8 @@ func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 		"Today":     now.Format(sessionDateLayout),
 		// Lets the template suppress an auto-generated session name, which
 		// would otherwise just repeat the date already in the page heading.
-		"DefaultName": defaultSessionName(now),
+		"DefaultName":   defaultSessionName(now),
+		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
 		data["Workouts"] = workouts.Results

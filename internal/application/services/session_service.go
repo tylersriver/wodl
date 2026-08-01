@@ -180,4 +180,3 @@ func (s *SessionService) loadWorkouts(ids []uuid.UUID) ([]*entities.Workout, err
 	}
 	return workouts, nil
 }
-

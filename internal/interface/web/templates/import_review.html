@@ -1,0 +1,135 @@
+{{define "import_review.html"}}
+{{template "head" .}}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+        <a href="/import" class="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Start over
+        </a>
+        <h1 class="text-2xl font-semibold tracking-tight">Check what we read</h1>
+        <p class="text-muted-foreground text-sm">Nothing is saved yet. Fix anything that's wrong, then save.</p>
+    </div>
+
+    {{if .DateMissing}}
+    <div class="alert" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <h2>No date on the board — we've assumed today.</h2>
+    </div>
+    {{end}}
+
+    <form method="POST" action="/import" class="flex flex-col gap-5">
+        <div class="card bg-card gap-4 rounded-xl border p-5">
+            <h2 class="font-semibold">Session</h2>
+            <div class="field">
+                <label for="import-name">Name</label>
+                <input type="text" id="import-name" name="name" value="{{.Session.Name}}" />
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="field">
+                    <label for="import-date">Day</label>
+                    <input type="date" id="import-date" name="date" value="{{.DateStr}}" required />
+                </div>
+                <div class="field">
+                    <label for="import-time">How long it should take <span class="text-muted-foreground font-normal">(min)</span></label>
+                    <input type="number" id="import-time" name="total_time_minutes" min="0" inputmode="numeric"
+                        {{if .Session.TotalTimeMinutes}}value="{{derefInt .Session.TotalTimeMinutes}}"{{end}} />
+                </div>
+            </div>
+            <div class="field">
+                <label for="import-warmup">Warmup</label>
+                <textarea id="import-warmup" name="warmup" rows="3">{{.Session.Warmup}}</textarea>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3">
+            <h2 class="font-semibold">Workouts</h2>
+            <span class="text-muted-foreground text-sm">{{len .Session.Workouts}} found</span>
+        </div>
+
+        <div id="import-workouts" class="flex flex-col gap-4">
+            {{range $i, $w := .Session.Workouts}}
+            <div class="card bg-card import-workout gap-4 rounded-xl border p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc $i}}</span>
+                    <button type="button" class="btn import-remove" data-variant="ghost" data-size="sm">Remove</button>
+                </div>
+                <div class="field">
+                    <label>Name</label>
+                    <input type="text" name="workout_name" value="{{$w.Name}}" required />
+                </div>
+                <div class="field">
+                    <label>Type</label>
+                    <select name="workout_type">
+                        {{range $.WorkoutTypes}}
+                        <option value="{{.}}" {{if eq (printf "%s" .) $w.Type}}selected{{end}}>{{.}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <textarea name="workout_description" rows="5">{{$w.Description}}</textarea>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="field">
+                        <label>Time cap <span class="text-muted-foreground font-normal">(min)</span></label>
+                        <input type="number" name="workout_time_cap" min="0" inputmode="numeric"
+                            {{if $w.TimeCapMinutes}}value="{{derefInt $w.TimeCapMinutes}}"{{end}} />
+                    </div>
+                    <div class="field">
+                        <label>Rounds</label>
+                        <input type="number" name="workout_rounds" inputmode="numeric"
+                            {{if $w.Rounds}}value="{{derefInt $w.Rounds}}"{{end}} />
+                    </div>
+                    <div class="field">
+                        <label>Interval <span class="text-muted-foreground font-normal">(sec)</span></label>
+                        <input type="number" name="workout_interval" inputmode="numeric"
+                            {{if $w.IntervalSeconds}}value="{{derefInt $w.IntervalSeconds}}"{{end}} />
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="field">
+                        <label>Lift <span class="text-muted-foreground font-normal">(lifting only)</span></label>
+                        <input type="text" name="workout_lift_name" value="{{$w.LiftName}}" placeholder="e.g. Sumo Deadlift" />
+                    </div>
+                    <div class="field">
+                        <label>Lift category</label>
+                        <select name="workout_lift_category">
+                            <option value="">(none)</option>
+                            {{range $.Categories}}
+                            <option value="{{.}}" {{if eq (printf "%s" .) $w.LiftCategory}}selected{{end}}>{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+
+        <p class="text-muted-foreground text-sm">
+            Lifts and workouts you already have are matched by name and reused, so repeating a
+            benchmark keeps one history rather than making a copy.
+        </p>
+
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <a href="/import" class="btn w-full sm:w-auto" data-variant="outline" data-size="lg">Cancel</a>
+            <button type="submit" class="btn w-full sm:w-auto" data-size="lg">Save session</button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Removing a card drops it from the parallel arrays the form posts, so the
+// server sees exactly the workouts left on screen.
+document.getElementById('import-workouts').addEventListener('click', function (e) {
+    var button = e.target.closest('.import-remove');
+    if (!button) return;
+    var cards = this.querySelectorAll('.import-workout');
+    if (cards.length <= 1) return;
+    button.closest('.import-workout').remove();
+    this.querySelectorAll('.import-workout').forEach(function (card, i) {
+        card.querySelector('.text-xs').textContent = 'Step ' + (i + 1);
+    });
+});
+</script>
+{{template "tail" .}}
+{{end}}

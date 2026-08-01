@@ -5,6 +5,7 @@ A workout logging app for tracking lifts and CrossFit-style WODs. Log your sessi
 ## Features
 
 - **Workout of the day** - Plan a session for a given day; the app opens on whatever is assigned to today
+- **Import from a photo** - Upload screenshots of your gym's programming and Claude fills in the session for you to check before it's saved (optional; needs `ANTHROPIC_API_KEY`)
 - **Lift tracking** - Log weight, reps, sets with automatic 1RM estimation (Epley formula) and percentage tables
 - **WOD tracking** - Log AMRAP, For Time, EMOM, Tabata, Chipper, and custom workouts
 - **Results** - Lifts and workouts in one filterable list
@@ -36,6 +37,7 @@ PORT=8080 ./wodl
 | `PORT` | `8080` | HTTP server port |
 | `JWT_SECRET` | `wodl-dev-secret-change-in-production` | JWT signing key |
 | `DB_PATH` | `wodl.db` | SQLite database file path |
+| `ANTHROPIC_API_KEY` | _(unset)_ | Enables importing a session from photos. Unset, the feature is hidden and the rest of the app is unaffected. |
 
 ## Development
 

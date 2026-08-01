@@ -46,6 +46,9 @@
         <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="openDialog('create-session-modal')">
             Plan another session
         </button>
+        {{if .ImportEnabled}}
+        <a href="/import" class="btn w-full sm:w-auto" data-variant="outline">Import from a photo</a>
+        {{end}}
         <a href="/sessions" class="btn w-full sm:w-auto" data-variant="ghost">See all sessions</a>
     </div>
     {{else}}
@@ -55,6 +58,9 @@
             <p class="text-muted-foreground text-sm">Pick the workouts you're doing and they'll show up here.</p>
         </div>
         <button type="button" class="btn" data-size="lg" onclick="openDialog('create-session-modal')">Plan today's session</button>
+        {{if .ImportEnabled}}
+        <a href="/import" class="btn" data-variant="outline">Import from a photo</a>
+        {{end}}
         <a href="/sessions" class="text-muted-foreground text-sm underline underline-offset-4">See all sessions</a>
     </div>
     {{end}}

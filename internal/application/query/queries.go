@@ -21,8 +21,8 @@ type GetLiftByIdQuery struct {
 }
 
 type GetLiftByIdQueryResult struct {
-	Lift           *common.LiftResult
-	Logs           []*common.LiftLogResult
+	Lift            *common.LiftResult
+	Logs            []*common.LiftLogResult
 	PercentageTable map[int]float64
 }
 
