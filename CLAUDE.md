@@ -70,6 +70,10 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   that shared clamp is what makes a loosely-schema'd provider safe to accept
 - `GROQ_MODEL` exists because Groq's catalogue turns over quickly. List what a key can
   reach with `curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"`
+- Uploads are scaled to `GROQ_MAX_IMAGE_EDGE` (default 1024px) before sending. Vision
+  models bill by pixel area and Groq's free tier is 8,000 tokens/minute, which two
+  full-resolution screenshots exceed on their own. `shrinkToFit` leaves already-small
+  images untouched rather than re-encoding them, and passes undecodable data through
 - Imported lifts and workouts are matched to existing ones by case-insensitive name so a
   repeated benchmark keeps one history; board wording (loads, "Score = Time", percentages
   of anything other than a 1RM) is kept verbatim in the description rather than reinterpreted

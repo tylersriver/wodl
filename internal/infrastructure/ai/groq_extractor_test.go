@@ -16,19 +16,19 @@ func fixedClock() func() time.Time {
 }
 
 func TestGroqExtractor_DisabledWithoutKey(t *testing.T) {
-	if NewGroqExtractor("", "") != nil {
+	if NewGroqExtractor("", "", 0) != nil {
 		t.Fatal("expected nil extractor without a key")
 	}
-	if NewGroqExtractor("   ", "") != nil {
+	if NewGroqExtractor("   ", "", 0) != nil {
 		t.Fatal("expected nil extractor for a blank key")
 	}
 }
 
 func TestGroqExtractor_ModelIsConfigurable(t *testing.T) {
-	if got := NewGroqExtractor("k", "").Model(); got != DefaultGroqModel {
+	if got := NewGroqExtractor("k", "", 0).Model(); got != DefaultGroqModel {
 		t.Errorf("empty model should fall back to the default, got %q", got)
 	}
-	if got := NewGroqExtractor("k", "some/other-model").Model(); got != "some/other-model" {
+	if got := NewGroqExtractor("k", "some/other-model", 0).Model(); got != "some/other-model" {
 		t.Errorf("model override ignored, got %q", got)
 	}
 }
@@ -36,7 +36,7 @@ func TestGroqExtractor_ModelIsConfigurable(t *testing.T) {
 // TestGroqExtractor_BuildRequest checks the wire shape, since it can't be
 // validated against the live API from here.
 func TestGroqExtractor_BuildRequest(t *testing.T) {
-	e := NewGroqExtractor("k", "")
+	e := NewGroqExtractor("k", "", 0)
 	e.now = fixedClock()
 
 	req, err := e.buildRequest([]common.BoardImage{
@@ -88,7 +88,7 @@ func TestGroqExtractor_BuildRequest(t *testing.T) {
 }
 
 func TestGroqExtractor_RejectsUnsupportedImage(t *testing.T) {
-	e := NewGroqExtractor("k", "")
+	e := NewGroqExtractor("k", "", 0)
 	_, err := e.buildRequest([]common.BoardImage{{MediaType: "application/pdf", Data: []byte("x")}})
 	if err == nil {
 		t.Fatal("expected an error for a non-image upload")
@@ -189,7 +189,7 @@ func TestGroqExtractor_ReadsBoardImages(t *testing.T) {
 		t.Skip("set GROQ_API_KEY and WODL_BOARD_FIXTURES to run the live Groq test")
 	}
 
-	e := NewGroqExtractor(key, os.Getenv("GROQ_MODEL"))
+	e := NewGroqExtractor(key, os.Getenv("GROQ_MODEL"), -1)
 	e.now = fixedClock()
 	t.Logf("model: %s", e.Model())
 

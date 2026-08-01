@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -73,9 +74,17 @@ func main() {
 	var boardExtractor services.BoardExtractor
 	switch {
 	case os.Getenv("GROQ_API_KEY") != "":
-		extractor := ai.NewGroqExtractor(os.Getenv("GROQ_API_KEY"), os.Getenv("GROQ_MODEL"))
+		// -1 means "use the default cap"; an explicit 0 disables scaling.
+		maxEdge := -1
+		if v := os.Getenv("GROQ_MAX_IMAGE_EDGE"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				maxEdge = n
+			}
+		}
+		extractor := ai.NewGroqExtractor(os.Getenv("GROQ_API_KEY"), os.Getenv("GROQ_MODEL"), maxEdge)
 		boardExtractor = extractor
-		log.Printf("importing sessions from images via Groq (%s)", extractor.Model())
+		log.Printf("importing sessions from images via Groq (%s, images capped at %dpx)",
+			extractor.Model(), extractor.MaxImageEdge())
 	case os.Getenv("ANTHROPIC_API_KEY") != "":
 		boardExtractor = ai.NewAnthropicExtractor(os.Getenv("ANTHROPIC_API_KEY"))
 		log.Print("importing sessions from images via Anthropic")

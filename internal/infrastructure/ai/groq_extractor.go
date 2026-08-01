@@ -23,6 +23,12 @@ const (
 	//	curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"
 	DefaultGroqModel = "meta-llama/llama-4-scout-17b-16e-instruct"
 	groqMaxTokens    = 4000
+	// DefaultGroqMaxImageEdge caps how large an image is sent. Vision models
+	// bill by pixel area, and Groq's free tier allows only 8,000 tokens per
+	// minute — two full-resolution phone screenshots exceed that on their own.
+	// 1024px keeps a whiteboard legible while fitting a pair inside the budget.
+	// Override with GROQ_MAX_IMAGE_EDGE; 0 disables scaling.
+	DefaultGroqMaxImageEdge = 1024
 )
 
 // GroqExtractor reads workout boards through Groq's OpenAI-compatible
@@ -34,24 +40,30 @@ const (
 // back by decodeBoardPayload, which discards anything outside the domain's
 // enums — so a looser model can't widen what the app accepts.
 type GroqExtractor struct {
-	apiKey string
-	model  string
-	client *http.Client
-	now    func() time.Time
+	apiKey  string
+	model   string
+	maxEdge int
+	client  *http.Client
+	now     func() time.Time
 }
 
 // NewGroqExtractor returns an extractor, or nil when no API key is configured.
-// An empty model falls back to DefaultGroqModel.
-func NewGroqExtractor(apiKey, model string) *GroqExtractor {
+// An empty model falls back to DefaultGroqModel; a maxEdge below zero falls
+// back to DefaultGroqMaxImageEdge, and exactly zero disables image scaling.
+func NewGroqExtractor(apiKey, model string, maxEdge int) *GroqExtractor {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil
 	}
 	if strings.TrimSpace(model) == "" {
 		model = DefaultGroqModel
 	}
+	if maxEdge < 0 {
+		maxEdge = DefaultGroqMaxImageEdge
+	}
 	return &GroqExtractor{
-		apiKey: apiKey,
-		model:  model,
+		apiKey:  apiKey,
+		model:   model,
+		maxEdge: maxEdge,
 		// A person is waiting on this call.
 		client: &http.Client{Timeout: 90 * time.Second},
 		now:    time.Now,
@@ -105,12 +117,18 @@ func (e *GroqExtractor) buildRequest(images []common.BoardImage) (*groqRequest, 
 		if !SupportedMediaType(img.MediaType) {
 			return nil, fmt.Errorf("unsupported image type %q", img.MediaType)
 		}
+		// Scale before encoding: a full-resolution screenshot can exceed a
+		// whole minute's token budget by itself.
+		sized, err := shrinkToFit(img, e.maxEdge)
+		if err != nil {
+			return nil, err
+		}
 		content = append(content, groqContent{
 			Type: "image_url",
 			ImageURL: &groqImageURL{URL: fmt.Sprintf(
 				"data:%s;base64,%s",
-				img.MediaType,
-				base64.StdEncoding.EncodeToString(img.Data),
+				sized.MediaType,
+				base64.StdEncoding.EncodeToString(sized.Data),
 			)},
 		})
 	}
@@ -160,7 +178,7 @@ func (e *GroqExtractor) Extract(ctx context.Context, images []common.BoardImage)
 		return nil, fmt.Errorf("unexpected response (HTTP %d): %s", resp.StatusCode, truncate(string(raw), 300))
 	}
 	if parsed.Error != nil {
-		return nil, fmt.Errorf("reading the board: %s", parsed.Error.Message)
+		return nil, fmt.Errorf("reading the board: %s%s", parsed.Error.Message, rateLimitHint(parsed.Error.Message))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("reading the board: HTTP %d: %s", resp.StatusCode, truncate(string(raw), 300))
@@ -171,6 +189,21 @@ func (e *GroqExtractor) Extract(ctx context.Context, images []common.BoardImage)
 
 	return decodeBoardPayload([]byte(stripCodeFence(parsed.Choices[0].Message.Content)))
 }
+
+// rateLimitHint appends the actionable fix to a token-budget rejection, which
+// otherwise only tells the user to "reduce your message size" without saying
+// that this app has a knob for exactly that.
+func rateLimitHint(message string) string {
+	m := strings.ToLower(message)
+	if !strings.Contains(m, "tokens per minute") && !strings.Contains(m, "request too large") &&
+		!strings.Contains(m, "rate limit") {
+		return ""
+	}
+	return " — try fewer images at once, or lower GROQ_MAX_IMAGE_EDGE" +
+		" (currently sending images at most " + itoa(DefaultGroqMaxImageEdge) + "px on the long edge by default)"
+}
+
+func itoa(v int) string { return fmt.Sprintf("%d", v) }
 
 // stripCodeFence removes a ```json wrapper. JSON mode should prevent one, but
 // vision models fall out of it often enough to be worth handling rather than
@@ -192,3 +225,6 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// MaxImageEdge reports the pixel cap applied to uploaded images, for logging.
+func (e *GroqExtractor) MaxImageEdge() int { return e.maxEdge }

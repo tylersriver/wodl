@@ -39,6 +39,7 @@ PORT=8080 ./wodl
 | `DB_PATH` | `wodl.db` | SQLite database file path |
 | `GROQ_API_KEY` | _(unset)_ | Enables importing a session from photos, via Groq. Takes precedence over `ANTHROPIC_API_KEY`. |
 | `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Vision model to use with Groq. Override if that model isn't available to your key. |
+| `GROQ_MAX_IMAGE_EDGE` | `1024` | Longest edge, in pixels, that an uploaded image is scaled to before sending. Vision models bill by pixel area, so lower this if you hit a tokens-per-minute limit; `0` disables scaling. |
 | `ANTHROPIC_API_KEY` | _(unset)_ | Enables importing a session from photos, via Claude. Used when `GROQ_API_KEY` is unset. |
 
 With neither key set, image import is hidden and the rest of the app is unaffected.
@@ -48,6 +49,11 @@ To see which models a Groq key can reach:
 ```bash
 curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"
 ```
+
+Groq's free tier allows 8,000 tokens per minute, and images dominate that budget.
+Two full-resolution phone screenshots exceed it on their own, which is why uploads
+are scaled down before sending. If an import still reports "request too large",
+lower `GROQ_MAX_IMAGE_EDGE` (try `800`) or upload one image at a time.
 
 ## Development
 
