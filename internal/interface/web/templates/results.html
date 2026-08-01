@@ -1,7 +1,12 @@
 {{define "results.html"}}
 {{template "head" .}}
 <div class="flex flex-col gap-6">
-    <div class="flex items-center justify-between gap-3">
+    <!--
+      The title row sits under a sticky header, so it needs its own headroom:
+      the shell's top padding scrolls away with the content, leaving the title
+      jammed against the bar the moment the page moves.
+    -->
+    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
         <h1 class="text-2xl font-semibold tracking-tight">Results</h1>
         <div class="flex gap-2">
             <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-lift-modal')">Add lift</button>
@@ -18,21 +23,21 @@
           hx-target="#results-list"
           hx-trigger="input changed delay:200ms, change, search"
           hx-push-url="true">
-        <input type="search" name="q" value="{{.Query}}" placeholder="Search by name" class="input w-full" autocomplete="off" />
-
-        <div role="group" aria-label="Filter by type" class="bg-muted grid grid-cols-3 gap-1 rounded-lg p-1">
-            <label class="text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm flex min-h-10 cursor-pointer items-center justify-center rounded-md text-sm font-medium transition-colors">
-                <input type="radio" name="kind" value="all" class="sr-only" {{if eq .Kind "all"}}checked{{end}} />
-                Everything
-            </label>
-            <label class="text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm flex min-h-10 cursor-pointer items-center justify-center rounded-md text-sm font-medium transition-colors">
-                <input type="radio" name="kind" value="lifts" class="sr-only" {{if eq .Kind "lifts"}}checked{{end}} />
-                Lifts
-            </label>
-            <label class="text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-sm flex min-h-10 cursor-pointer items-center justify-center rounded-md text-sm font-medium transition-colors">
-                <input type="radio" name="kind" value="workouts" class="sr-only" {{if eq .Kind "workouts"}}checked{{end}} />
-                Workouts
-            </label>
+        <!--
+          Search and the type filter share a row: they are one question ("which
+          of these do I want to see"), and the filter is a native select so the
+          phone gives it a proper picker instead of three targets competing for
+          width. aria-label rather than a visually hidden <label>, so there is
+          nothing to accidentally un-hide.
+        -->
+        <div class="flex items-center gap-3">
+            <input type="search" name="q" value="{{.Query}}" placeholder="Search by name"
+                   class="input min-w-0 flex-1" autocomplete="off" />
+            <select name="kind" class="select w-auto shrink-0" aria-label="Filter by type">
+                <option value="all" {{if eq .Kind "all"}}selected{{end}}>Everything</option>
+                <option value="lifts" {{if eq .Kind "lifts"}}selected{{end}}>Lifts</option>
+                <option value="workouts" {{if eq .Kind "workouts"}}selected{{end}}>Workouts</option>
+            </select>
         </div>
 
         {{if ne .Kind "lifts"}}

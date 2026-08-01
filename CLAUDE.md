@@ -61,7 +61,12 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   padding-bottom utility (`py-6`, `pb-*`) on that element: utilities sit in a later
   cascade layer than components, so they silently beat `.has-tabbar` and drop the page's
   last control under the bar — which is how Save/Cancel ended up unreachable on
-  `/import/extract`. The shell sets `pt-6` only
+  `/import/extract`. The shell sets `pt-8` only
+- Basecoat's own rules are **unlayered**, so they outrank every Tailwind utility, not just
+  component-layer CSS. `sr-only` is the known casualty: Basecoat ships `.sr-only{width:auto}`
+  which beats Tailwind's layered utility, leaving the element 13px wide instead of 1px.
+  Don't reach for `sr-only` to hide a form control — prefer `aria-label` on the control
+  itself. When a utility mysteriously doesn't apply, check for a Basecoat rule first
 - `/lifts` and `/workouts` 301 to `/results`; their detail pages are unchanged
 - Schema changes go in `runVersionedMigrations` in infrastructure/db/sqlite/db.go, gated on
   `PRAGMA user_version`. Anything dropped there must also be removed from `migrationSQL`,
