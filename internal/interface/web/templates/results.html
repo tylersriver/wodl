@@ -1,12 +1,7 @@
 {{define "results.html"}}
 {{template "head" .}}
 <div class="flex flex-col gap-6">
-    <!--
-      The title row sits under a sticky header, so it needs its own headroom:
-      the shell's top padding scrolls away with the content, leaving the title
-      jammed against the bar the moment the page moves.
-    -->
-    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-semibold tracking-tight">Results</h1>
         <div class="flex gap-2">
             <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-lift-modal')">Add lift</button>
