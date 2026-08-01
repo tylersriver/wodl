@@ -64,10 +64,15 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   through a guard, since a typed nil stored in the interface would still test non-nil
 - The vendor stays behind the `services.BoardExtractor` port; tests inject a stub via
   `testhelpers.NewTestAppWithExtractor`, so the import flow is covered without network access
-- Anthropic constrains the output with a strict tool schema; Groq states the JSON shape in
-  the prompt instead, because its vision models have not supported tools and images in the
-  same request. Either way `decodeBoardPayload` clamps the result to the domain's enums —
-  that shared clamp is what makes a loosely-schema'd provider safe to accept
+- Anthropic states the shape with a tool schema; Groq states it in the prompt instead,
+  because its vision models have not supported tools and images in the same request.
+  Either way `decodeBoardPayload` clamps the result to the domain's enums — that shared
+  clamp is what makes a loosely-schema'd provider safe to accept
+- The Anthropic tool is deliberately **not** `Strict`. With strict decoding the model's own
+  tool-call framing leaked into the payload: the workouts array arrived as literal text
+  inside the preceding `warmup` string and `workouts` came back empty, so a legible board
+  imported as "no workouts found". It reproduced on every strict run and none without.
+  `TestExtractor_ToolIsNotStrict` pins it
 - `GROQ_MODEL` exists because Groq's catalogue turns over quickly. List what a key can
   reach with `curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer $GROQ_API_KEY"`
 - Uploads are scaled to `GROQ_MAX_IMAGE_EDGE` (default 1024px) before sending. Vision

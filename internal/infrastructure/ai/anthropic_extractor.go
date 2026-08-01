@@ -71,7 +71,14 @@ func (e *AnthropicExtractor) buildParams(images []common.BoardImage) (anthropic.
 	tool := anthropic.ToolParam{
 		Name:        extractToolName,
 		Description: anthropic.String("Record the training session shown on the board image(s)."),
-		Strict:      anthropic.Bool(true),
+		// Deliberately not Strict. With strict decoding on, this schema made the
+		// model's own tool-call framing leak into the payload: the board was read
+		// correctly, but the whole workouts array arrived as literal text inside
+		// the preceding "warmup" string and workouts itself came back empty — so
+		// an import failed with "no workouts found" on a perfectly legible photo.
+		// Reproduced on every strict run across two models; clean on every
+		// non-strict one. The schema below still guides the model, and
+		// decodeBoardPayload is what actually holds the result to the domain.
 		InputSchema: sessionSchema(),
 	}
 
@@ -111,10 +118,12 @@ func (e *AnthropicExtractor) Extract(ctx context.Context, images []common.BoardI
 	return nil, fmt.Errorf("no session could be read from the image")
 }
 
-// sessionSchema mirrors the domain's enums so the model can only produce values
-// the app accepts. Strict tool use requires every property to be listed in
-// required and additionalProperties to be false, so optional fields are
-// expressed as nullable rather than omitted.
+// sessionSchema mirrors the domain's enums so the model is steered towards
+// values the app accepts. It is guidance, not enforcement — see the note on
+// Strict in buildParams — so every field is listed as required and optional
+// ones are expressed as nullable, which keeps the shape unambiguous without
+// relying on the decoder to reject anything. validWorkoutType and
+// validLiftCategory are what actually hold the result to the domain.
 func sessionSchema() anthropic.ToolInputSchemaParam {
 	nullableInt := map[string]any{"type": []string{"integer", "null"}}
 

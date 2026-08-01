@@ -89,6 +89,25 @@ func TestExtractor_ReadsBoardImages(t *testing.T) {
 	}
 }
 
+// TestExtractor_ToolIsNotStrict pins a fix that is invisible in the schema
+// itself. Turning strict decoding on makes the model's tool-call framing leak
+// into the payload: the workouts array arrives as literal text inside the
+// preceding "warmup" string and workouts comes back empty, so a legible board
+// imports as "no workouts found". It reproduced on every strict attempt and on
+// none without, so this stays off until that is fixed upstream.
+func TestExtractor_ToolIsNotStrict(t *testing.T) {
+	extractor := NewAnthropicExtractor("test-key")
+	params, err := extractor.buildParams([]common.BoardImage{
+		{MediaType: "image/jpeg", Data: []byte{0xff, 0xd8}},
+	})
+	if err != nil {
+		t.Fatalf("building params: %v", err)
+	}
+	if strict := params.Tools[0].OfTool.Strict; strict.Valid() && strict.Value {
+		t.Error("strict tool decoding makes the model leak its framing into the payload")
+	}
+}
+
 // TestExtractor_RequestShapeIsAccepted validates the tool schema and image
 // blocks against the API's own validator via token counting, which does not
 // consume a completion. Cheaper than the extraction test above and the first
