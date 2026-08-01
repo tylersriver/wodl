@@ -1,8 +1,9 @@
 {{define "session_form"}}
 <!--
   Create-session dialog. A session is the plan for one day, so the date is
-  always set — it defaults to today and the name is optional (the server falls
-  back to naming it after the day).
+  always set — it defaults to FormDate, the day the page is showing, which is
+  not always today now that the landing page can step through days. The name is
+  optional (the server falls back to naming it after the day).
 -->
 <dialog id="create-session-modal" class="dialog sheet" aria-labelledby="create-session-title"
         onclick="if (event.target === this) this.close()">
@@ -14,7 +15,7 @@
         <section class="flex flex-col gap-4 overflow-y-auto px-6">
             <div class="field">
                 <label for="session-date">Day</label>
-                <input type="date" id="session-date" name="date" value="{{.Today}}" required />
+                <input type="date" id="session-date" name="date" value="{{.FormDate}}" required />
             </div>
             {{template "workout_selector" (dict "Prefix" "create" "Workouts" .Workouts "InitialOrderCSV" "")}}
             <div class="field">

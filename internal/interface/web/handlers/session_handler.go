@@ -60,10 +60,13 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
 
 	data := map[string]interface{}{
-		"View":          view,
-		"Sessions":      sessions.Results,
-		"Workouts":      nil,
-		"Today":         time.Now().Format(sessionDateLayout),
+		"View":     view,
+		"Sessions": sessions.Results,
+		"Workouts": nil,
+		"Today":    time.Now().Format(sessionDateLayout),
+		// The list has no notion of a day being looked at, so a new session
+		// starts on today.
+		"FormDate":      time.Now().Format(sessionDateLayout),
 		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
@@ -243,6 +246,12 @@ func sessionRedirectTarget(date time.Time) string {
 // so the user never has to invent a title for "the workout on Tuesday".
 func defaultSessionName(date time.Time) string {
 	return date.Format("Mon, Jan 2")
+}
+
+// startOfDay is local midnight for the given time, which is where a day's
+// session range begins.
+func startOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
 }
 
 // parseMonthParam returns the first-of-month time for a YYYY-MM input. Empty

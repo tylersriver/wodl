@@ -10,6 +10,9 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
 - Results are recorded against the individual **Lift** (sets) and **Workout** (scores).
 - The landing page (`/`) shows the session dated today; `/results` is the combined,
   filterable list of lifts and workouts.
+- `/` takes `?date=YYYY-MM-DD` to show any day. The arrows, the swipe gesture and the
+  create-session date default all key off that one parameter, so day-stepping degrades
+  to plain links without JavaScript. An unparseable date falls back to today
 - A session can be built from photos of a gym's programming at `/import`. Extraction
   and creation are separate steps on purpose: `/import/extract` only reads and renders
   an editable review, and nothing is written until the user posts it back.

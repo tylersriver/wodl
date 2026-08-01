@@ -33,19 +33,31 @@ func NewDashboardHandler(liftService *services.LiftService, workoutService *serv
 	}
 }
 
-// Today renders the session assigned to today — the workout of the day. It is
+// Today renders the session assigned to one day — the workout of the day. It is
 // the landing page, so the first thing the user sees is what they are meant to
 // be doing rather than a search box.
+//
+// The day is addressable with ?date=YYYY-MM-DD, which is what makes stepping
+// between days possible at all: the arrows and the swipe gesture are both just
+// links to the neighbouring dates, so the feature works without JavaScript and
+// every day can be bookmarked. An unparseable date falls back to today rather
+// than erroring, since it only ever arrives from a hand-edited URL.
 func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
 	now := time.Now()
-	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	today := startOfDay(now)
+	day := today
+	if v := strings.TrimSpace(r.URL.Query().Get("date")); v != "" {
+		if parsed, err := time.ParseInLocation(sessionDateLayout, v, time.Local); err == nil {
+			day = startOfDay(parsed)
+		}
+	}
 
 	todays, err := h.sessionService.GetSessionsInRange(&query.GetSessionsInRangeQuery{
 		UserId: userId,
-		Start:  dayStart,
-		End:    dayStart.AddDate(0, 0, 1),
+		Start:  day,
+		End:    day.AddDate(0, 0, 1),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -69,11 +81,21 @@ func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Sessions":  sessions,
 		"Workouts":  nil,
-		"TodayText": now.Format("Monday, January 2"),
-		"Today":     now.Format(sessionDateLayout),
+		"TodayText": day.Format("Monday, January 2"),
+		// Heads the page when the day isn't today; the full date sits right
+		// above it, so the weekday alone is unambiguous enough.
+		"WeekdayText": day.Format("Monday"),
+		// Neighbouring days for the arrows and the swipe gesture. Both directions
+		// are always offered: an empty day is a normal thing to land on, and is
+		// where you plan one.
+		"PrevDate": day.AddDate(0, 0, -1).Format(sessionDateLayout),
+		"NextDate": day.AddDate(0, 0, 1).Format(sessionDateLayout),
+		"IsToday":  day.Equal(today),
+		// Planning from this page should plan the day being looked at, not today.
+		"FormDate": day.Format(sessionDateLayout),
 		// Lets the template suppress an auto-generated session name, which
 		// would otherwise just repeat the date already in the page heading.
-		"DefaultName":   defaultSessionName(now),
+		"DefaultName":   defaultSessionName(day),
 		"ImportEnabled": h.importEnabled,
 	}
 	if workouts != nil {
