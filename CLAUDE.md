@@ -54,6 +54,11 @@ cd frontend && npm run watch                  # Same, rebuilding on change
 - Mobile nav is the bottom tab bar in layout.html (Today / Results / Sessions); its active
   item is set client-side from `location.pathname`, so handlers don't pass down a
   "current page" flag
+- The bar is `fixed`, so `<main>` reserves room for it with `.has-tabbar`. Never put a
+  padding-bottom utility (`py-6`, `pb-*`) on that element: utilities sit in a later
+  cascade layer than components, so they silently beat `.has-tabbar` and drop the page's
+  last control under the bar — which is how Save/Cancel ended up unreachable on
+  `/import/extract`. The shell sets `pt-6` only
 - `/lifts` and `/workouts` 301 to `/results`; their detail pages are unchanged
 - Schema changes go in `runVersionedMigrations` in infrastructure/db/sqlite/db.go, gated on
   `PRAGMA user_version`. Anything dropped there must also be removed from `migrationSQL`,

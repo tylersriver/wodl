@@ -22,8 +22,25 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /*
+   * The bar is 4rem tall plus its border and the safe-area inset, so this
+   * reserves that much again with room to spare — the last thing on a page is
+   * often a Save button, and it has to be reachable, not just visible.
+   *
+   * Nothing in the markup may set padding-bottom on the same element: utilities
+   * live in a later layer than components, so a stray `py-6` silently wins this
+   * and drops the page's last control back under the bar. That is exactly what
+   * happened before, which is why the page shell now sets only `pt-6`.
+   */
   .has-tabbar {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Above the small breakpoint the bar is hidden and the header nav takes over. */
+  @media (width >= 40rem) {
+    .has-tabbar {
+      padding-bottom: 2.5rem;
+    }
   }
 
   /*
