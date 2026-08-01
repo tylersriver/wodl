@@ -1,0 +1,47 @@
+{{define "lift_form"}}
+<!--
+  Create-lift dialog, shared by the dashboard and the lifts index. Opened via
+  showModal() from any button with onclick="openDialog('create-lift-modal')".
+-->
+<dialog id="create-lift-modal" class="dialog sheet" aria-labelledby="create-lift-title"
+        onclick="if (event.target === this) this.close()">
+    <form method="POST" action="/lifts" class="bg-card w-full max-w-md gap-0 rounded-xl border shadow-lg">
+        <header class="gap-1.5 p-6 pb-4">
+            <h2 id="create-lift-title" class="text-lg font-semibold">Add a lift</h2>
+            <p class="text-muted-foreground text-sm">Something you load with a barbell, like a back squat.</p>
+        </header>
+        <section class="flex flex-col gap-4 overflow-y-auto px-6">
+            <div class="field">
+                <label for="lift-name">Name</label>
+                <input type="text" id="lift-name" name="name" placeholder="e.g. Back Squat" required />
+            </div>
+            <div class="field">
+                <label for="lift-category">Category</label>
+                <select id="lift-category" name="category">
+                    {{range .Categories}}
+                    <option value="{{.}}">{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="field">
+                <label for="lift-1rm">Best ever single <span class="text-muted-foreground font-normal">(optional)</span></label>
+                <input type="number" id="lift-1rm" name="one_rep_max" step="0.5" min="0" inputmode="decimal" />
+                <p class="text-muted-foreground text-sm">The heaviest you've lifted once. Leave blank if you're not sure.</p>
+            </div>
+        </section>
+        <footer class="gap-2 p-6">
+            <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn w-full sm:w-auto">Add lift</button>
+        </footer>
+    </form>
+</dialog>
+{{end}}
+
+{{define "dialog_script"}}
+<script>
+function openDialog(id) {
+    var el = document.getElementById(id);
+    if (el) el.showModal();
+}
+</script>
+{{end}}

@@ -6,5 +6,5 @@ import "embed"
 // service worker. The gen_icons.go generator is excluded so it does not ship
 // in the binary or appear under /static/.
 //
-//go:embed icon-192.png icon-512.png icon-512-maskable.png manifest.webmanifest sw.js
+//go:embed app.css htmx.min.js icon-192.png icon-512.png icon-512-maskable.png manifest.webmanifest sw.js
 var FS embed.FS

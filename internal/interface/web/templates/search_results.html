@@ -1,45 +1,44 @@
 {{define "search_results.html"}}
 {{if or .Lifts .Workouts .Sessions}}
-<div class="space-y-2">
+<ul class="flex flex-col gap-2">
     {{range .Lifts}}
-    <a href="/lifts/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
-        <div class="card-body p-4 flex-row items-center justify-between">
-            <div>
-                <span class="font-semibold">{{.Name}}</span>
-                <span class="badge badge-primary badge-sm ml-2">{{.Category}}</span>
-            </div>
+    <li>
+        <a href="/lifts/{{.Id}}" class="card bg-card hover:bg-accent/50 flex-row items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
+            <span class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">{{.Name}}</span>
+                <span class="badge" data-variant="secondary">{{.Category}}</span>
+            </span>
             {{if .OneRepMax}}
-            <span class="text-sm text-base-content/60">1RM: {{printf "%.0f" (deref .OneRepMax)}}</span>
+            <span class="text-muted-foreground shrink-0 text-sm tabular-nums">{{printf "%.0f" (deref .OneRepMax)}}</span>
             {{end}}
-        </div>
-    </a>
+        </a>
+    </li>
     {{end}}
     {{range .Workouts}}
-    <a href="/workouts/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
-        <div class="card-body p-4 flex-row items-center justify-between">
-            <div>
-                <span class="font-semibold">{{.Name}}</span>
-                <span class="badge badge-secondary badge-sm ml-2">{{.Type}}</span>
-            </div>
-        </div>
-    </a>
+    <li>
+        <a href="/workouts/{{.Id}}" class="card bg-card hover:bg-accent/50 flex-row items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
+            <span class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">{{.Name}}</span>
+                <span class="badge" data-variant="outline">{{.Type}}</span>
+            </span>
+        </a>
+    </li>
     {{end}}
     {{range .Sessions}}
-    <a href="/sessions/{{.Id}}" class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow block">
-        <div class="card-body p-4 flex-row items-center justify-between">
-            <div>
-                <span class="font-semibold">{{.Name}}</span>
-                <span class="badge badge-accent badge-sm ml-2">session</span>
-                <span class="badge badge-ghost badge-sm ml-1">{{len .Workouts}} workouts</span>
-            </div>
+    <li>
+        <a href="/sessions/{{.Id}}" class="card bg-card hover:bg-accent/50 flex-row items-center justify-between gap-3 rounded-lg border p-3 transition-colors">
+            <span class="flex flex-wrap items-center gap-2">
+                <span class="font-medium">{{.Name}}</span>
+                <span class="badge" data-variant="outline">{{len .Workouts}} workouts</span>
+            </span>
             {{if .TotalTimeMinutes}}
-            <span class="text-sm text-base-content/60">{{derefInt .TotalTimeMinutes}} min</span>
+            <span class="text-muted-foreground shrink-0 text-sm tabular-nums">{{derefInt .TotalTimeMinutes}} min</span>
             {{end}}
-        </div>
-    </a>
+        </a>
+    </li>
     {{end}}
-</div>
+</ul>
 {{else}}
-<p class="text-center text-base-content/50 py-4">No results found</p>
+<p class="text-muted-foreground py-4 text-center text-sm">No results found</p>
 {{end}}
 {{end}}

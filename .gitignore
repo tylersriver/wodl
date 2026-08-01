@@ -1,5 +1,6 @@
 wodl
 wodl.db
+frontend/node_modules/
 *.db-shm
 *.db-wal
 go-ddd/

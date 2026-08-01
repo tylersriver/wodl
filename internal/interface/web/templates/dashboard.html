@@ -1,55 +1,36 @@
 {{define "dashboard.html"}}
 {{template "head" .}}
-<div class="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-    <div class="flex gap-3">
-        <label for="create-lift-modal" class="btn btn-ghost btn-sm">+ Lift</label>
-        <label for="create-workout-modal" class="btn btn-ghost btn-sm">+ Workout</label>
-        <a href="/quick-log" class="btn btn-ghost btn-sm">+ Session</a>
-    </div>
-    <h1 class="text-4xl font-bold">WODL</h1>
-    <p class="text-base-content/60">Search your lifts, workouts, and sessions</p>
-    <div class="w-full max-w-lg">
-        <input type="text" name="q" placeholder="Search lifts, workouts & sessions..."
-            class="input input-bordered input-lg w-full"
+<div class="flex flex-col gap-8">
+    <section class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1">
+            <h1 class="text-2xl font-semibold tracking-tight">Today</h1>
+            <p class="text-muted-foreground text-sm">Record what you did at the gym.</p>
+        </div>
+        <a href="/quick-log" class="btn w-full" data-size="lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Log a workout
+        </a>
+        <div class="grid grid-cols-2 gap-3">
+            <button type="button" class="btn" data-variant="outline" onclick="openDialog('create-lift-modal')">Add a lift</button>
+            <button type="button" class="btn" data-variant="outline" onclick="openDialog('create-workout-modal')">Add a workout</button>
+        </div>
+    </section>
+
+    <section class="flex flex-col gap-3">
+        <label for="dashboard-search" class="text-sm font-medium">Find something you've saved</label>
+        <input type="search" id="dashboard-search" name="q" placeholder="Search lifts, workouts & sessions"
+            class="input w-full"
             hx-get="/api/search"
             hx-trigger="input changed delay:200ms, search"
             hx-target="#search-results"
             hx-params="*"
             autocomplete="off" />
-    </div>
-    <div id="search-results" class="w-full max-w-lg"></div>
+        <div id="search-results"></div>
+    </section>
 </div>
 
-<input type="checkbox" id="create-lift-modal" class="modal-toggle" />
-<div class="modal modal-bottom sm:modal-middle">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg">Add New Lift</h3>
-        <form method="POST" action="/lifts" class="space-y-4 mt-4">
-            <div class="form-control">
-                <label class="label"><span class="label-text">Name</span></label>
-                <input type="text" name="name" class="input input-bordered" placeholder="e.g. Back Squat" required />
-            </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Category</span></label>
-                <select name="category" class="select select-bordered">
-                    {{range .Categories}}
-                    <option value="{{.}}">{{.}}</option>
-                    {{end}}
-                </select>
-            </div>
-            <div class="form-control">
-                <label class="label"><span class="label-text">Known 1RM (optional)</span></label>
-                <input type="number" name="one_rep_max" class="input input-bordered" step="0.5" min="0" />
-            </div>
-            <div class="modal-action">
-                <label for="create-lift-modal" class="btn">Cancel</label>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
-    </div>
-    <label class="modal-backdrop" for="create-lift-modal"></label>
-</div>
-
+{{template "lift_form" .}}
 {{template "workout_form" .}}
+{{template "dialog_script" .}}
 {{template "tail" .}}
 {{end}}

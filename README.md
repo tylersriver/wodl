@@ -43,9 +43,24 @@ go test ./...    # Run tests
 go vet ./...     # Lint
 ```
 
+### Styles
+
+The stylesheet is compiled from Tailwind CSS v4 + [Basecoat](https://basecoatui.com)
+into `internal/interface/web/static/app.css`, which is committed and embedded in the
+binary — building or running the app needs no Node toolchain.
+
+Rebuild it after changing any template, since Tailwind only emits the classes it finds
+in the markup:
+
+```bash
+cd frontend
+npm install
+npm run build    # or: npm run watch
+```
+
 ## Tech Stack
 
 - **Backend**: Go, chi router, SQLite (pure Go driver)
-- **Frontend**: Server-rendered HTML, DaisyUI, Tailwind CSS, HTMX
+- **Frontend**: Server-rendered HTML, Basecoat (shadcn/ui without React), Tailwind CSS v4, HTMX — self-hosted, no CDNs
 - **Auth**: JWT (HTTP-only cookies), bcrypt
 - **Architecture**: Domain-Driven Design, CQRS

@@ -1,0 +1,16 @@
+{
+  "name": "wodl-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stylesheet build for WODL. Compiles Tailwind CSS v4 + Basecoat into a single stylesheet that is committed to the repo and embedded in the Go binary.",
+  "license": "ISC",
+  "scripts": {
+    "build": "tailwindcss -i input.css -o ../internal/interface/web/static/app.css --minify",
+    "watch": "tailwindcss -i input.css -o ../internal/interface/web/static/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "basecoat-css": "^1.0.2",
+    "tailwindcss": "^4.3.3"
+  }
+}

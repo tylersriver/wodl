@@ -1,0 +1,81 @@
+/*
+ * Stylesheet source for WODL.
+ *
+ * Basecoat is a plain-HTML/CSS port of the shadcn/ui design system, so we get
+ * shadcn's look without React or Radix. Tailwind scans the Go templates below
+ * and emits only the utilities they actually use, which keeps the committed
+ * app.css small enough to ship offline in the PWA.
+ *
+ * Rebuild after editing any template:  cd frontend && npm run build
+ */
+@import "tailwindcss";
+@import "basecoat-css";
+
+@source "../internal/interface/web/templates";
+
+@layer components {
+  /*
+   * The bottom tab bar sits over the home indicator on iPhones, so pad it by
+   * the safe-area inset and reserve matching space at the end of page content.
+   */
+  .tabbar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .has-tabbar {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Phone keyboards zoom the viewport when a focused field's text is under
+   * 16px, which leaves the page scrolled sideways. Force 16px on every text
+   * entry so tapping a field never moves the page.
+   */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
+}
+
+/*
+ * On phones a centred dialog is an awkward reach, so `.sheet` re-anchors it to
+ * the bottom edge as a full-width sheet under the thumb.
+ *
+ * Deliberately left outside `@layer components`: unlayered rules outrank every
+ * layered one, and Basecoat centres `.dialog > *` from inside that same layer.
+ * The slide-up is a keyframe rather than a transition off `@starting-style`,
+ * because the build's CSS minifier drops the `@starting-style` wrapper while
+ * keeping the rule inside it, which would strand the sheet off-screen.
+ *
+ * `translate`/`scale` must be reset by name, not via `transform`: Tailwind v4
+ * emits `-translate-x-1/2` and `scale-95` as those standalone properties, so
+ * `transform: none` alone leaves the centring offset in place.
+ */
+@media (width < 40rem) {
+  .dialog.sheet > *,
+  .alert-dialog.sheet > * {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100% - 3rem);
+    translate: none;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .dialog.sheet[open] > *,
+  .alert-dialog.sheet[open] > * {
+    animation: wodl-sheet-up 200ms ease-out;
+  }
+}
+
+@keyframes wodl-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
