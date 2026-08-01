@@ -42,13 +42,12 @@
     </section>
     {{end}}
 
+    <!--
+      Planning and importing are deliberately absent once the day is filled in:
+      the page is then for reading what you're doing, and both actions stay a
+      tap away on Sessions. Each session above still has its own Edit.
+    -->
     <div class="flex flex-col gap-3 sm:flex-row">
-        <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="openDialog('create-session-modal')">
-            Plan another session
-        </button>
-        {{if .ImportEnabled}}
-        <a href="/import" class="btn w-full sm:w-auto" data-variant="outline">Import from a photo</a>
-        {{end}}
         <a href="/sessions" class="btn w-full sm:w-auto" data-variant="ghost">See all sessions</a>
     </div>
     {{else}}
@@ -66,7 +65,10 @@
     {{end}}
 </div>
 
+{{/* Only the empty state can open the create dialog, so only it needs one. */}}
+{{if not .Sessions}}
 {{template "session_form" .}}
 {{template "dialog_script" .}}
+{{end}}
 {{template "tail" .}}
 {{end}}
