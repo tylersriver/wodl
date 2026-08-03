@@ -44,32 +44,72 @@
 <!--
   One workout inside a session plan, with a direct route to record how it went.
   Lifting workouts send you to the lift itself, where sets are logged.
+
+  The card folds: a session of four workouts with descriptions and a percentage
+  table is several screens on a phone, and the step you're actually on is rarely
+  the one in view. It's a native <details>, so it still opens with JavaScript
+  off, and it starts open — collapsing is something you do to a step you're done
+  with, not a state to be greeted by.
+
+  The name is plain text rather than a link here. A link inside <summary> is a
+  coin toss between navigating and toggling; "Log your score" below already goes
+  to the same page.
+
+  Deliberately not Basecoat's `.card`: that rule is unlayered and sets its own
+  padding-block, which no utility can turn off, and the summary has to run the
+  full height of the card to be a comfortable tap target.
 -->
-<li class="card bg-card gap-3 rounded-xl border p-5">
-    <div class="flex flex-col gap-2">
-        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc .Index}}</span>
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="/workouts/{{.Workout.Id}}" class="font-medium underline underline-offset-4">{{.Workout.Name}}</a>
-            <span class="badge" data-variant="secondary">{{.Workout.Type}}</span>
+<li class="bg-card overflow-hidden rounded-xl border">
+    <details class="group/card" open data-card-key="workout-{{.Workout.Id}}">
+        <summary class="hover:bg-muted/40 flex cursor-pointer list-none items-start gap-3 p-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground mt-1 shrink-0 transition-transform group-open/card:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+            <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc .Index}}</span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-medium">{{.Workout.Name}}</span>
+                    <span class="badge" data-variant="secondary">{{.Workout.Type}}</span>
+                </div>
+                {{if or .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds}}
+                <div class="flex flex-wrap gap-2">
+                    {{if .Workout.TimeCap}}<span class="badge" data-variant="outline">{{derefInt .Workout.TimeCap}} min cap</span>{{end}}
+                    {{if .Workout.Rounds}}<span class="badge" data-variant="outline">{{derefInt .Workout.Rounds}} rounds</span>{{end}}
+                    {{if .Workout.IntervalSeconds}}<span class="badge" data-variant="outline">{{derefInt .Workout.IntervalSeconds}}s interval</span>{{end}}
+                </div>
+                {{end}}
+            </div>
+        </summary>
+        <div class="flex flex-col gap-3 px-5 pb-5">
+            {{if .Workout.Description}}
+            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Workout.Description}}</pre>
+            {{end}}
+            {{if eq .Workout.Type "lifting"}}
+            {{template "lifting_prescription" .Workout}}
+            {{end}}
+            {{if and (eq .Workout.Type "lifting") .Workout.Lift}}
+            <a href="/lifts/{{.Workout.Lift.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your sets</a>
+            {{else}}
+            <a href="/workouts/{{.Workout.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your score</a>
+            {{end}}
         </div>
-        {{if or .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds}}
-        <div class="flex flex-wrap gap-2">
-            {{if .Workout.TimeCap}}<span class="badge" data-variant="outline">{{derefInt .Workout.TimeCap}} min cap</span>{{end}}
-            {{if .Workout.Rounds}}<span class="badge" data-variant="outline">{{derefInt .Workout.Rounds}} rounds</span>{{end}}
-            {{if .Workout.IntervalSeconds}}<span class="badge" data-variant="outline">{{derefInt .Workout.IntervalSeconds}}s interval</span>{{end}}
-        </div>
-        {{end}}
-    </div>
-    {{if .Workout.Description}}
-    <pre class="font-sans text-sm whitespace-pre-wrap">{{.Workout.Description}}</pre>
-    {{end}}
-    {{if eq .Workout.Type "lifting"}}
-    {{template "lifting_prescription" .Workout}}
-    {{end}}
-    {{if and (eq .Workout.Type "lifting") .Workout.Lift}}
-    <a href="/lifts/{{.Workout.Lift.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your sets</a>
-    {{else}}
-    <a href="/workouts/{{.Workout.Id}}" class="btn w-full sm:w-fit" data-variant="outline">Log your score</a>
-    {{end}}
+    </details>
 </li>
+{{end}}
+
+{{define "session_warmup_card"}}
+<!--
+  The warmup, folding the same way the workout cards do — it's the part of the
+  plan you stop needing first. Takes a dict of Key (for remembering the fold)
+  and Warmup.
+-->
+<div class="bg-card overflow-hidden rounded-xl border">
+    <details class="group/card" open data-card-key="warmup-{{.Key}}">
+        <summary class="hover:bg-muted/40 flex cursor-pointer list-none items-center gap-3 p-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground shrink-0 transition-transform group-open/card:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+            <h2 class="font-semibold">Warmup</h2>
+        </summary>
+        <div class="px-5 pb-5">
+            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Warmup}}</pre>
+        </div>
+    </details>
+</div>
 {{end}}

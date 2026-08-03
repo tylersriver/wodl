@@ -57,7 +57,9 @@ func decodeBoardPayload(raw []byte) (*common.ExtractedSession, error) {
 		TotalTimeMinutes: payload.TotalTimeMinutes,
 	}
 	if d := strings.TrimSpace(payload.Date); d != "" {
-		if parsed, err := time.ParseInLocation(boardDateLayout, d, time.Local); err == nil {
+		// A date read off a whiteboard is a calendar day, not an instant, so it
+		// is anchored the same way stored session dates are: midnight UTC.
+		if parsed, err := time.Parse(boardDateLayout, d); err == nil {
 			session.Date = parsed
 		}
 	}

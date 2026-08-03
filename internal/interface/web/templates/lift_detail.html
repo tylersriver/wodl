@@ -103,7 +103,7 @@
                     </button>
                 </div>
                 <div class="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-sm">
-                    <span>{{.LoggedAt.Format "Jan 2, 2006"}}</span>
+                    <span>{{when .LoggedAt $.Loc "Jan 2, 2006"}}</span>
                     <span>est {{printf "%.1f" .Estimated1RM}}</span>
                     {{if .RPE}}<span>RPE {{printf "%.1f" (deref .RPE)}}</span>{{end}}
                     {{if .PercentOf1RM}}<span>{{printf "%.0f" (deref .PercentOf1RM)}}% of best</span>{{end}}
@@ -131,7 +131,7 @@
                 <tbody>
                     {{range .Logs}}
                     <tr>
-                        <td class="whitespace-nowrap">{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                        <td class="whitespace-nowrap">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</td>
                         <td class="tabular-nums">{{printf "%.1f" .Weight}}</td>
                         <td class="tabular-nums">{{.Reps}}</td>
                         <td class="tabular-nums">{{.Sets}}</td>

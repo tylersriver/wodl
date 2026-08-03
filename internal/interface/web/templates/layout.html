@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WODL - Workout Logger</title>
+    {{template "timezone_script"}}
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -111,6 +112,28 @@
         best.setAttribute('aria-current', 'page');
     }
 })();
+
+// Remember which session cards were folded away. Tapping "Log your score",
+// recording it and coming back is the normal way through a session, and without
+// this every step you'd already finished with springs open again on the way
+// back. sessionStorage rather than localStorage: which steps are behind you is
+// about the session you're in the middle of, not a setting to carry into next
+// week. Nothing here is load-bearing — the cards fold on their own.
+document.querySelectorAll('details[data-card-key]').forEach(function (card) {
+    var key = 'wodl:card:' + card.dataset.cardKey;
+    var stored;
+    try {
+        stored = sessionStorage.getItem(key);
+    } catch (e) {
+        return;
+    }
+    if (stored !== null) card.open = stored === '1';
+    card.addEventListener('toggle', function () {
+        try {
+            sessionStorage.setItem(key, card.open ? '1' : '0');
+        } catch (e) {}
+    });
+});
 
 // Attach click-ordered multi-select behaviour to any .workout-selector-root.
 // Each checkbox toggle pushes its workout id to an ordered list; that list

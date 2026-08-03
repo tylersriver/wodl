@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/tyler/wodl/internal/application/command"
 	"github.com/tyler/wodl/internal/application/common"
@@ -38,7 +37,7 @@ func (h *ImportHandler) Page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.templates.ExecuteTemplate(w, "import.html", map[string]interface{}{
-		"Today": time.Now().Format(sessionDateLayout),
+		"Today": formatCivil(todayIn(requestLocation(r))),
 	})
 }
 
@@ -51,30 +50,31 @@ func (h *ImportHandler) Extract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseMultipartForm(maxImportUploadBytes); err != nil {
-		h.renderUploadError(w, "Those images couldn't be read. Try again with smaller files.")
+		h.renderUploadError(w, r, "Those images couldn't be read. Try again with smaller files.")
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
 
 	images, err := collectImages(r)
 	if err != nil {
-		h.renderUploadError(w, err.Error())
+		h.renderUploadError(w, r, err.Error())
 		return
 	}
 
 	extracted, err := h.importService.Preview(r.Context(), images)
 	if err != nil {
-		h.renderUploadError(w, fmt.Sprintf("Couldn't read a session from those images: %v", err))
+		h.renderUploadError(w, r, fmt.Sprintf("Couldn't read a session from those images: %v", err))
 		return
 	}
 	if len(extracted.Workouts) == 0 {
-		h.renderUploadError(w, "No workouts were found in those images. Try a clearer photo.")
+		h.renderUploadError(w, r, "No workouts were found in those images. Try a clearer photo.")
 		return
 	}
 
-	dateStr := extracted.Date.Format(sessionDateLayout)
+	today := formatCivil(todayIn(requestLocation(r)))
+	dateStr := formatCivil(extracted.Date)
 	if extracted.Date.IsZero() {
-		dateStr = time.Now().Format(sessionDateLayout)
+		dateStr = today
 	}
 
 	h.templates.ExecuteTemplate(w, "import_review.html", map[string]interface{}{
@@ -83,7 +83,7 @@ func (h *ImportHandler) Extract(w http.ResponseWriter, r *http.Request) {
 		"DateMissing":  extracted.Date.IsZero(),
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"Categories":   entities.ValidLiftCategories(),
-		"Today":        time.Now().Format(sessionDateLayout),
+		"Today":        today,
 	})
 }
 
@@ -100,7 +100,7 @@ func (h *ImportHandler) Create(w http.ResponseWriter, r *http.Request) {
 		UserId: userId,
 		Name:   strings.TrimSpace(r.FormValue("name")),
 		Warmup: r.FormValue("warmup"),
-		Date:   parseSessionDate(r.FormValue("date")),
+		Date:   parseSessionDate(r.FormValue("date"), todayIn(requestLocation(r))),
 	}
 	if n, err := strconv.Atoi(r.FormValue("total_time_minutes")); err == nil {
 		cmd.TotalTimeMinutes = &n
@@ -145,11 +145,11 @@ func (h *ImportHandler) Create(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/sessions/%s", result.SessionId), http.StatusSeeOther)
 }
 
-func (h *ImportHandler) renderUploadError(w http.ResponseWriter, message string) {
+func (h *ImportHandler) renderUploadError(w http.ResponseWriter, r *http.Request, message string) {
 	w.WriteHeader(http.StatusBadRequest)
 	h.templates.ExecuteTemplate(w, "import.html", map[string]interface{}{
 		"Error": message,
-		"Today": time.Now().Format(sessionDateLayout),
+		"Today": formatCivil(todayIn(requestLocation(r))),
 	})
 }
 
