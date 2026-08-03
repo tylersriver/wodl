@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -83,7 +82,10 @@ func (h *WorkoutHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"WorkoutTypes": entities.ValidWorkoutTypes(),
 		"ScoreTypes":   entities.ValidScoreTypes(),
 		"Lifts":        nil,
-		"Today":        time.Now().Format("2006-01-02"),
+		"Today":        formatCivil(todayIn(requestLocation(r))),
+		// Score timestamps are instants, so the day one falls on depends on who
+		// is reading it — see the `when` template helper.
+		"Loc": requestLocation(r),
 	}
 	if lifts != nil {
 		data["Lifts"] = lifts.Results
@@ -184,7 +186,7 @@ func (h *WorkoutHandler) deriveLiftingName(userId uuid.UUID, liftId *uuid.UUID, 
 	if dateStr == "" {
 		return "", errors.New("a date is required for lifting workouts")
 	}
-	date, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+	date, err := parseCivilDate(dateStr)
 	if err != nil {
 		return "", fmt.Errorf("invalid date: %w", err)
 	}

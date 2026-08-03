@@ -1,0 +1,38 @@
+{{define "timezone_script"}}
+<!--
+  Tell the server which zone the reader's days are measured in.
+
+  Nothing in an HTTP request carries a time zone and the container's clock is
+  UTC, so without this "today" rolls over at 6pm Mountain: on a Sunday evening
+  the landing page showed Monday's session. Every page includes this, log-in
+  screens included, so the zone is already known by the time there is a session
+  to render.
+
+  The value goes in unencoded. Go reads cookie values verbatim, so a
+  percent-escaped "America%2FDenver" is not a zone name it can look up — it
+  would fail quietly and fall back to UTC, which is the bug this is here to
+  fix. IANA names have no character that needs escaping; the pattern below is
+  the guarantee that we only ever write one that doesn't.
+
+  The server chose a day before it knew the zone, so a first visit — or a
+  flight to another one — re-fetches the page once. The guard reads back only
+  the cookie we just wrote, so it cannot loop even if the server makes nothing
+  of the value. replace() rather than reload() keeps this a GET and leaves no
+  extra history entry.
+-->
+<script>
+(function () {
+    try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!tz || !/^[A-Za-z0-9_+\-\/]+$/.test(tz)) return;
+        var current = document.cookie.match(/(?:^|;\s*)tz=([^;]*)/);
+        if (current && current[1] === tz) return;
+        document.cookie = 'tz=' + tz + ';path=/;max-age=31536000;samesite=lax';
+        window.location.replace(window.location.href.split('#')[0]);
+    } catch (e) {
+        // No Intl, or cookies are turned off. The server falls back to its own
+        // zone, which is what the whole app did before this existed.
+    }
+})();
+</script>
+{{end}}

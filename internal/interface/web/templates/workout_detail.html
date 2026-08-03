@@ -82,7 +82,7 @@
                     <span class="badge" data-variant="outline">{{.ScoreType}}</span>
                     {{if .Rx}}<span class="badge" data-variant="secondary">Rx</span>{{end}}
                 </div>
-                <span class="text-muted-foreground text-sm">{{.LoggedAt.Format "Jan 2, 2006"}}</span>
+                <span class="text-muted-foreground text-sm">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</span>
                 {{if .Notes}}<p class="text-muted-foreground text-sm">{{.Notes}}</p>{{end}}
             </li>
             {{end}}
@@ -102,7 +102,7 @@
                 <tbody>
                     {{range .Results}}
                     <tr>
-                        <td class="whitespace-nowrap">{{.LoggedAt.Format "Jan 2, 2006"}}</td>
+                        <td class="whitespace-nowrap">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</td>
                         <td class="font-medium">{{.Score}}</td>
                         <td>{{.ScoreType}}</td>
                         <td>{{if .Rx}}<span class="badge" data-variant="secondary">Rx</span>{{end}}</td>
@@ -150,7 +150,7 @@
                 </div>
                 <div class="field">
                     <label for="edit-date">Date</label>
-                    <input type="date" id="edit-date" name="date" value="{{.Workout.CreatedAt.Format "2006-01-02"}}" />
+                    <input type="date" id="edit-date" name="date" value="{{when .Workout.CreatedAt .Loc "2006-01-02"}}" />
                     <p class="text-muted-foreground text-sm">The name is built from the lift and date.</p>
                 </div>
             </div>

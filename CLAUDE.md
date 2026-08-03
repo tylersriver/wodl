@@ -16,6 +16,19 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
 - A session can be built from photos of a gym's programming at `/import`. Extraction
   and creation are separate steps on purpose: `/import/extract` only reads and renders
   an editable review, and nothing is written until the user posts it back.
+- A session date is a **civil date**, not an instant: "the plan for Sunday" is the same
+  day for whoever reads it. Every one is anchored at midnight UTC — see
+  `handlers/civil_date.go`, and go through its helpers rather than `time.Now()` or
+  `time.Local`. Which day is *today*, though, is the reader's question: the server clock
+  is UTC, so before this the landing page rolled over to tomorrow at 6pm Mountain. The
+  browser reports its IANA zone in a `tz` cookie (`timezone_script`, on every page
+  including log-in) and `requestLocation` resolves the day in it, falling back to the
+  server's zone when the cookie is missing or unusable. Two consequences worth knowing:
+  the cookie value must go in **unencoded**, because Go hands cookie values back verbatim
+  and `America%2FDenver` is not a zone anyone can look up; and `handlers` imports
+  `time/tzdata`, because the Alpine image carries no zoneinfo and every lookup would
+  otherwise fail into UTC — exactly the bug being fixed. `LoggedAt` and friends *are*
+  instants, so they render through the `when` helper with the `Loc` the handler passes down
 
 ## Tech Stack
 - Go backend with chi router, SQLite (modernc.org/sqlite pure Go driver)
@@ -63,6 +76,14 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   driven by `data-variant` / `data-size` attributes rather than class soup
 - Modals are native `<dialog class="dialog sheet">` opened with `openDialog(id)`; `sheet` makes
   them full-width bottom sheets on phones
+- Session cards (`session_workout_card`, `session_warmup_card`) fold: a native `<details>`
+  that starts open, so the page still works without JavaScript and nothing is hidden until
+  you hide it. The fold is remembered per card in `sessionStorage` under `data-card-key`,
+  which is what keeps the steps you're done with folded after a round-trip to log a score;
+  the tab-scoped store is deliberate, since that state is about the session you're in the
+  middle of. They use plain `bg-card rounded-xl border` rather than Basecoat's `.card` —
+  `.card` is unlayered and sets its own `padding-block` that no utility can turn off, which
+  would stop the summary running the full height of its tap target
 - Mobile nav is the bottom tab bar in layout.html (Today / Results / Sessions); its active
   item is set client-side from `location.pathname`, so handlers don't pass down a
   "current page" flag

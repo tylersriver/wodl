@@ -79,6 +79,9 @@ func (h *LiftHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"PercentageTable": result.PercentageTable,
 		"PctKeys":         pctKeys,
 		"Categories":      entities.ValidLiftCategories(),
+		// Set timestamps are instants, so the day one falls on depends on who
+		// is reading it — see the `when` template helper.
+		"Loc": requestLocation(r),
 	})
 }
 

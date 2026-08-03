@@ -3,6 +3,7 @@ package templates
 import (
 	"fmt"
 	"html/template"
+	"time"
 
 	"github.com/tyler/wodl/internal/interface/web/static"
 )
@@ -33,10 +34,25 @@ func funcMap() template.FuncMap {
 		},
 		"inc":  func(i int) int { return i + 1 },
 		"dict": dict,
+		"when": when,
 		// Content-addressed URLs for cached assets, so a new build's markup can
 		// never be paired with the previous build's stylesheet.
 		"asset": static.AssetURL,
 	}
+}
+
+// when formats an instant in the reader's zone, which the handler passes down
+// as `Loc`.
+//
+// Logging a set at 7pm in Denver records an instant that is already the next
+// day in UTC, and the server's clock is UTC — so `.LoggedAt.Format` alone dates
+// half the evening's work to tomorrow. A nil zone means the browser never told
+// us one; fall back to the server's, which is what the whole app did before.
+func when(t time.Time, loc *time.Location, layout string) string {
+	if loc == nil {
+		loc = time.Local
+	}
+	return t.In(loc).Format(layout)
 }
 
 // dict builds a map inline, so a partial can be given more than the one value a

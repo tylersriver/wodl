@@ -40,10 +40,7 @@
         </div>
 
         {{if .Warmup}}
-        <div class="card bg-card gap-3 rounded-xl border p-5">
-            <h3 class="font-semibold">Warmup</h3>
-            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Warmup}}</pre>
-        </div>
+        {{template "session_warmup_card" (dict "Key" .Id "Warmup" .Warmup)}}
         {{end}}
 
         {{if .Workouts}}

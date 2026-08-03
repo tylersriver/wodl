@@ -7,6 +7,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -298,4 +299,145 @@ func TestE2E_Calc1RM_API(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, "233.3", string(body))
+}
+
+// The landing page shows the day the *reader* is on, not the day the server's
+// UTC clock is on. This is the bug the tz cookie fixes: from early evening in
+// the Americas the two disagree, and the app was showing tomorrow's plan.
+//
+// The two zones straddle UTC so that whenever the test runs, at least one of
+// them is on a different calendar day than the server: Kiritimati is ahead from
+// 10:00 UTC and Midway is behind until 11:00. A test that only asserted against
+// the server's own zone would pass on the broken code half the day.
+func TestE2E_TodayIsInTheReadersTimeZone(t *testing.T) {
+	zones := []string{
+		"Pacific/Kiritimati", // UTC+14 — already tomorrow from 10:00 UTC
+		"Pacific/Midway",     // UTC-11 — still yesterday until 11:00 UTC
+	}
+
+	for _, zone := range zones {
+		t.Run(zone, func(t *testing.T) {
+			app := NewTestApp(t)
+			client := newClient()
+
+			resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+				"email":        {"traveller@example.com"},
+				"password":     {"password123"},
+				"display_name": {"Traveller"},
+			})
+			require.NoError(t, err)
+			u, _ := url.Parse(app.Server.URL)
+			client.Jar.SetCookies(u, resp.Cookies())
+			client.Jar.SetCookies(u, []*http.Cookie{{Name: "tz", Value: zone, Path: "/"}})
+
+			loc, err := time.LoadLocation(zone)
+			require.NoError(t, err)
+			there := time.Now().In(loc).Format("2006-01-02")
+
+			resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+				"date": {there},
+				"name": {"Session in " + zone},
+			})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+			// Saving a session for the day you are on lands you back on it.
+			assert.Equal(t, "/", resp.Header.Get("Location"))
+
+			resp, err = client.Get(app.Server.URL + "/")
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			body, _ := io.ReadAll(resp.Body)
+			assert.Contains(t, string(body), "Session in "+zone,
+				"the session dated %s (today in %s) should be on the landing page", there, zone)
+		})
+	}
+}
+
+// Without a zone the app can only use the server's, which is what it did before
+// the cookie existed — the page must still render rather than error.
+func TestE2E_TodayWithoutTimeZoneCookie(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"zoneless@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Zoneless"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date": {time.Now().Format("2006-01-02")},
+		"name": {"Server-zone session"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	resp, err = client.Get(app.Server.URL + "/")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), "Server-zone session")
+}
+
+// Each workout in a session folds away, so a long day isn't several screens of
+// scrolling to reach the step you're on. It's a native <details> and starts
+// open — collapsing is something you do, not a state you're greeted by.
+func TestE2E_SessionCardsAreCollapsible(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"folder@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Folder"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name":        {"Fran"},
+		"type":        {"for_time"},
+		"description": {"21-15-9 thrusters and pull-ups"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date":        {time.Now().Format("2006-01-02")},
+		"name":        {"Fold me"},
+		"warmup":      {"500m row"},
+		"workout_ids": {workoutId},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	resp, err = client.Get(app.Server.URL + "/")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	page := string(body)
+
+	assert.Contains(t, page, `data-card-key="workout-`+workoutId+`"`)
+	assert.Contains(t, page, `data-card-key="warmup-`)
+	assert.Contains(t, page, "<details", "cards fold without JavaScript")
+	// The body is still in the markup, so a collapsed card costs nothing to
+	// open and the page is still searchable and printable.
+	assert.Contains(t, page, "21-15-9 thrusters and pull-ups")
+
+	// The session's own page shows the same cards, from the same partial.
+	var sessionId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM sessions LIMIT 1").Scan(&sessionId))
+	resp, err = client.Get(app.Server.URL + "/sessions/" + sessionId)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, _ = io.ReadAll(resp.Body)
+	assert.Contains(t, string(body), `data-card-key="workout-`+workoutId+`"`)
+	assert.Contains(t, string(body), `data-card-key="warmup-`+sessionId+`"`)
 }

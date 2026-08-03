@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/tyler/wodl/internal/application/common"
 	"github.com/tyler/wodl/internal/application/query"
@@ -42,15 +41,17 @@ func NewDashboardHandler(liftService *services.LiftService, workoutService *serv
 // links to the neighbouring dates, so the feature works without JavaScript and
 // every day can be bookmarked. An unparseable date falls back to today rather
 // than erroring, since it only ever arrives from a hand-edited URL.
+//
+// Which day is "today" is the reader's question, not the server's, so it is
+// resolved in the zone their browser reported — see requestLocation.
 func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 	userId := middleware.GetUserID(r)
 
-	now := time.Now()
-	today := startOfDay(now)
+	today := todayIn(requestLocation(r))
 	day := today
 	if v := strings.TrimSpace(r.URL.Query().Get("date")); v != "" {
-		if parsed, err := time.ParseInLocation(sessionDateLayout, v, time.Local); err == nil {
-			day = startOfDay(parsed)
+		if parsed, err := parseCivilDate(v); err == nil {
+			day = parsed
 		}
 	}
 
@@ -88,11 +89,11 @@ func (h *DashboardHandler) Today(w http.ResponseWriter, r *http.Request) {
 		// Neighbouring days for the arrows and the swipe gesture. Both directions
 		// are always offered: an empty day is a normal thing to land on, and is
 		// where you plan one.
-		"PrevDate": day.AddDate(0, 0, -1).Format(sessionDateLayout),
-		"NextDate": day.AddDate(0, 0, 1).Format(sessionDateLayout),
+		"PrevDate": formatCivil(day.AddDate(0, 0, -1)),
+		"NextDate": formatCivil(day.AddDate(0, 0, 1)),
 		"IsToday":  day.Equal(today),
 		// Planning from this page should plan the day being looked at, not today.
-		"FormDate": day.Format(sessionDateLayout),
+		"FormDate": formatCivil(day),
 		// Lets the template suppress an auto-generated session name, which
 		// would otherwise just repeat the date already in the page heading.
 		"DefaultName":   defaultSessionName(day),
@@ -160,7 +161,7 @@ func (h *DashboardHandler) Results(w http.ResponseWriter, r *http.Request) {
 		"IncludeLifting": includeLifting,
 		"Categories":     entities.ValidLiftCategories(),
 		"WorkoutTypes":   entities.ValidWorkoutTypes(),
-		"Today":          time.Now().Format(sessionDateLayout),
+		"Today":          formatCivil(todayIn(requestLocation(r))),
 	}
 
 	// The filter posts back over htmx, so re-render just the list when asked.
