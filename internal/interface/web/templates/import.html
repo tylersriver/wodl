@@ -6,7 +6,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             Sessions
         </a>
-        <h1 class="text-2xl font-semibold tracking-tight">Import from a photo</h1>
+        <h1 class="font-display mt-1 text-3xl font-extrabold tracking-tight">Import from a photo</h1>
         <p class="text-muted-foreground text-sm">Upload a screenshot or photo of the day's programming and we'll fill in the session for you to check.</p>
     </div>
 
@@ -54,7 +54,7 @@
         preview.classList.toggle('grid', files.length > 0);
         files.forEach(function (file) {
             var img = document.createElement('img');
-            img.className = 'aspect-square w-full rounded-lg border object-cover';
+            img.className = 'aspect-square w-full rounded-xl border object-cover';
             img.alt = file.name;
             img.src = URL.createObjectURL(file);
             img.onload = function () { URL.revokeObjectURL(img.src); };

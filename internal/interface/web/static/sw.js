@@ -23,17 +23,25 @@
 //   - Anything POST/PUT/DELETE is passed straight through so writes never get
 //     silently swallowed by the cache.
 
-// Bumping VERSION drops every previous cache on activate. v3 exists to evict
-// the unhashed app.css that v2 pinned, which is what left installed copies
-// rendering new markup against an old stylesheet.
-const VERSION = 'wodl-v3';
+// Bumping VERSION drops every previous cache on activate. v3 evicted the
+// unhashed app.css that v2 pinned, which is what left installed copies
+// rendering new markup against an old stylesheet; v4 drops the pages cached
+// under the previous look, which would otherwise be the first thing an
+// offline launch painted.
+const VERSION = 'wodl-v4';
 const SHELL_CACHE = `${VERSION}-shell`;
 const PAGE_CACHE = `${VERSION}-pages`;
 
+// The fonts are pre-cached rather than fetched on demand like the rest of
+// /static/: they are named from inside app.css, so a first load that happens to
+// be offline would otherwise fall back to the system face and reflow the whole
+// page once the network came back.
 const SHELL_URLS = [
   '/static/icon-192.png',
   '/static/icon-512.png',
   '/static/icon-512-maskable.png',
+  '/static/archivo-latin.woff2',
+  '/static/dm-sans-latin.woff2',
   '/manifest.webmanifest',
 ];
 

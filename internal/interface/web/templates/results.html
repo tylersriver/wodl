@@ -2,7 +2,7 @@
 {{template "head" .}}
 <div class="flex flex-col gap-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold tracking-tight">Results</h1>
+        <h1 class="font-display text-3xl font-extrabold tracking-tight">Results</h1>
         <div class="flex gap-2">
             <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-lift-modal')">Add lift</button>
             <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('create-workout-modal')">Add workout</button>
@@ -59,18 +59,18 @@
 <div class="flex flex-col gap-6">
     {{if .Lifts}}
     <section class="flex flex-col gap-3">
-        <h2 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Lifts</h2>
+        <h2 class="eyebrow text-muted-foreground">Lifts</h2>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {{range .Lifts}}
-            <a href="/lifts/{{.Id}}" class="card bg-card hover:bg-accent/50 flex-row items-center justify-between gap-3 rounded-xl border p-4 transition-colors">
-                <span class="flex flex-col gap-1.5">
-                    <span class="font-medium">{{.Name}}</span>
-                    <span class="badge w-fit" data-variant="secondary">{{.Category}}</span>
+            <a href="/lifts/{{.Id}}" class="bg-card hover:border-primary/40 flex items-center justify-between gap-3 rounded-2xl border p-4 transition-colors">
+                <span class="flex min-w-0 flex-col gap-1">
+                    <span class="eyebrow text-muted-foreground">{{label .Category}}</span>
+                    <span class="font-display truncate text-lg font-bold tracking-tight">{{.Name}}</span>
                 </span>
                 {{if .OneRepMax}}
-                <span class="flex flex-col items-end">
-                    <span class="text-xl font-semibold tabular-nums">{{printf "%.0f" (deref .OneRepMax)}}</span>
-                    <span class="text-muted-foreground text-xs">best single</span>
+                <span class="flex shrink-0 flex-col items-end gap-0.5">
+                    <span class="numeral text-2xl leading-none">{{printf "%.0f" (deref .OneRepMax)}}</span>
+                    <span class="eyebrow text-muted-foreground">best</span>
                 </span>
                 {{end}}
             </a>
@@ -81,14 +81,12 @@
 
     {{if .Workouts}}
     <section class="flex flex-col gap-3">
-        <h2 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Workouts</h2>
+        <h2 class="eyebrow text-muted-foreground">Workouts</h2>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {{range .Workouts}}
-            <a href="/workouts/{{.Id}}" class="card bg-card hover:bg-accent/50 gap-2 rounded-xl border p-4 transition-colors">
-                <span class="flex flex-wrap items-center gap-2">
-                    <span class="font-medium">{{.Name}}</span>
-                    <span class="badge" data-variant="secondary">{{.Type}}</span>
-                </span>
+            <a href="/workouts/{{.Id}}" class="bg-card hover:border-primary/40 flex flex-col gap-1 rounded-2xl border p-4 transition-colors">
+                <span class="eyebrow text-muted-foreground">{{label .Type}}</span>
+                <span class="font-display text-lg font-bold tracking-tight">{{.Name}}</span>
                 {{if .Description}}
                 <span class="text-muted-foreground line-clamp-2 text-sm">{{.Description}}</span>
                 {{end}}
@@ -99,7 +97,7 @@
     {{end}}
 </div>
 {{else}}
-<div class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center">
+<div class="flex flex-col items-center gap-4 rounded-3xl border border-dashed px-6 py-14 text-center">
     {{if .Filtered}}
     <p class="text-muted-foreground">Nothing matches that.</p>
     <a href="/results" class="btn" data-variant="outline">Clear filters</a>

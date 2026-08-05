@@ -19,7 +19,7 @@
                 <label for="lift-category">Category</label>
                 <select id="lift-category" name="category">
                     {{range .Categories}}
-                    <option value="{{.}}">{{.}}</option>
+                    <option value="{{.}}">{{label .}}</option>
                     {{end}}
                 </select>
             </div>

@@ -11,7 +11,12 @@ import (
 // service worker. The gen_icons.go generator is excluded so it does not ship
 // in the binary or appear under /static/.
 //
+// The woff2 files are the two typefaces app.css asks for by path. They are
+// variable fonts, so one file per typeface per unicode range covers every
+// weight the app sets.
+//
 //go:embed app.css htmx.min.js icon-192.png icon-512.png icon-512-maskable.png manifest.webmanifest sw.js
+//go:embed archivo-latin.woff2 archivo-latin-ext.woff2 dm-sans-latin.woff2 dm-sans-latin-ext.woff2
 var FS embed.FS
 
 var (

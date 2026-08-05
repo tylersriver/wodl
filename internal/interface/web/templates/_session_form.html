@@ -59,16 +59,16 @@
   padding-block, which no utility can turn off, and the summary has to run the
   full height of the card to be a comfortable tap target.
 -->
-<li class="bg-card overflow-hidden rounded-xl border">
+<li class="bg-card overflow-hidden rounded-2xl border">
     <details class="group/card" open data-card-key="workout-{{.Workout.Id}}">
         <summary class="hover:bg-muted/40 flex cursor-pointer list-none items-start gap-3 p-5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground mt-1 shrink-0 transition-transform group-open/card:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground mt-1.5 shrink-0 transition-transform group-open/card:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
             <div class="flex min-w-0 flex-1 flex-col gap-2">
-                <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc .Index}}</span>
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-medium">{{.Workout.Name}}</span>
-                    <span class="badge" data-variant="secondary">{{.Workout.Type}}</span>
+                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span class="eyebrow text-primary">Step {{inc .Index}}</span>
+                    <span class="eyebrow text-muted-foreground">{{label .Workout.Type}}</span>
                 </div>
+                <span class="font-display text-lg leading-snug font-bold tracking-tight">{{.Workout.Name}}</span>
                 {{if or .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds}}
                 <div class="flex flex-wrap gap-2">
                     {{if .Workout.TimeCap}}<span class="badge" data-variant="outline">{{derefInt .Workout.TimeCap}} min cap</span>{{end}}
@@ -78,9 +78,15 @@
                 {{end}}
             </div>
         </summary>
-        <div class="flex flex-col gap-3 px-5 pb-5">
+        <!-- pl-12 lines the body up under the title, past the chevron gutter. -->
+        <div class="flex flex-col gap-4 pr-5 pb-5 pl-12">
             {{if .Workout.Description}}
-            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Workout.Description}}</pre>
+            <!--
+              The board's own wording, kept verbatim. The accent rail down the
+              left is what separates "this is the workout" from the chrome
+              around it without adding another box.
+            -->
+            <pre class="border-primary/40 font-sans text-[0.9375rem] leading-relaxed whitespace-pre-wrap border-l-2 pl-4">{{.Workout.Description}}</pre>
             {{end}}
             {{if eq .Workout.Type "lifting"}}
             {{template "lifting_prescription" .Workout}}
@@ -101,14 +107,15 @@
   plan you stop needing first. Takes a dict of Key (for remembering the fold)
   and Warmup.
 -->
-<div class="bg-card overflow-hidden rounded-xl border">
+<div class="bg-card overflow-hidden rounded-2xl border">
     <details class="group/card" open data-card-key="warmup-{{.Key}}">
         <summary class="hover:bg-muted/40 flex cursor-pointer list-none items-center gap-3 p-5">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground shrink-0 transition-transform group-open/card:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
-            <h2 class="font-semibold">Warmup</h2>
+            <h2 class="eyebrow text-muted-foreground">Warmup</h2>
         </summary>
-        <div class="px-5 pb-5">
-            <pre class="font-sans text-sm whitespace-pre-wrap">{{.Warmup}}</pre>
+        <!-- pl-12 lines the text up under the heading, past the chevron gutter. -->
+        <div class="pr-5 pb-5 pl-12">
+            <pre class="font-sans text-[0.9375rem] leading-relaxed whitespace-pre-wrap">{{.Warmup}}</pre>
         </div>
     </details>
 </div>

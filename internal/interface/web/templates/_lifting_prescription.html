@@ -2,35 +2,28 @@
 {{if eq .Type "lifting"}}
 <div class="flex flex-col gap-3">
     {{if .Lift}}
-    <div class="flex flex-wrap items-center gap-2 text-sm">
-        <a href="/lifts/{{.Lift.Id}}" class="font-medium underline underline-offset-4">{{.Lift.Name}}</a>
-        <span class="badge" data-variant="outline">{{.Lift.Category}}</span>
+    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <a href="/lifts/{{.Lift.Id}}" class="font-display font-bold tracking-tight underline underline-offset-4">{{.Lift.Name}}</a>
+        <span class="eyebrow text-muted-foreground">{{label .Lift.Category}}</span>
         {{if .Lift.OneRepMax}}
-        <span class="badge" data-variant="secondary">best {{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
+        <span class="text-muted-foreground ml-auto text-sm">
+            best <span class="numeral text-foreground text-base">{{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
+        </span>
         {{end}}
     </div>
     {{if .PctKeys}}
     <details class="group">
-        <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
+        <summary class="eyebrow text-muted-foreground hover:text-foreground flex min-h-11 cursor-pointer list-none items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
             Percentages
         </summary>
-        <div class="table-container mt-2 max-h-72 overflow-y-auto rounded-lg border">
-            <table class="table">
-                <thead>
-                    <tr><th>%</th><th class="text-right">Weight</th></tr>
-                </thead>
-                <tbody>
-                    {{$table := .PercentageTable}}
-                    {{range .PctKeys}}
-                    <tr>
-                        <td class="tabular-nums">{{.}}%</td>
-                        <td class="text-right tabular-nums">{{printf "%.1f" (index $table .)}}</td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
+        <!--
+          The ladder as tiles rather than rows. It is the same numbers the table
+          held, but a phone shows all eleven at once instead of scrolling a
+          two-column table inside an already scrolling page — and from the floor,
+          mid-set, a grid is something you find with a glance rather than read.
+        -->
+        {{template "percentage_tiles" .}}
     </details>
     {{else if .Lift.OneRepMax}}
     {{/* Best single is known but table wasn't computed — nothing to render. */}}
@@ -48,4 +41,24 @@
     {{end}}
 </div>
 {{end}}
+{{end}}
+
+{{define "percentage_tiles"}}
+<!--
+  A percentage ladder. Takes anything carrying PctKeys and PercentageTable,
+  which is both the lift page and a lifting workout inside a session.
+
+  100% is marked `on` because that is the number the rest are derived from —
+  your best single — so the tile you can check the maths against is the one that
+  stands out.
+-->
+<div class="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+    {{$table := .PercentageTable}}
+    {{range .PctKeys}}
+    <div class="stat-tile" {{if eq . 100}}data-state="on"{{end}}>
+        <span class="stat-key">{{.}}%</span>
+        <span class="stat-value">{{printf "%.0f" (index $table .)}}</span>
+    </div>
+    {{end}}
+</div>
 {{end}}

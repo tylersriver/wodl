@@ -11,7 +11,7 @@
                 <label for="create-type">Type</label>
                 <select id="create-type" name="type" onchange="toggleLiftingFields(this, 'create')">
                     {{range .WorkoutTypes}}
-                    <option value="{{.}}">{{.}}</option>
+                    <option value="{{.}}">{{label .}}</option>
                     {{end}}
                 </select>
             </div>
