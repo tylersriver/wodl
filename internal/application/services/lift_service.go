@@ -158,6 +158,19 @@ func (s *LiftService) GetLiftById(q *query.GetLiftByIdQuery) (*query.GetLiftById
 	return result, nil
 }
 
+func (s *LiftService) GetLiftLogsInRange(q *query.GetLiftLogsInRangeQuery) (*query.GetLiftLogsInRangeQueryResult, error) {
+	logs, err := s.liftLogRepo.FindByUserInRange(q.UserId, q.Start, q.End)
+	if err != nil {
+		return nil, err
+	}
+
+	var results query.GetLiftLogsInRangeQueryResult
+	for _, l := range logs {
+		results.Results = append(results.Results, mapper.LiftLogToResult(l))
+	}
+	return &results, nil
+}
+
 func (s *LiftService) GetRecentLiftLogs(q *query.GetRecentLiftLogsQuery) (*query.GetRecentLiftLogsQueryResult, error) {
 	logs, err := s.liftLogRepo.FindByUserId(q.UserId, q.Limit)
 	if err != nil {

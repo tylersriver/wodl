@@ -67,6 +67,32 @@ type GetRecentWorkoutResultsQueryResult struct {
 	Results []*common.WorkoutResultResult
 }
 
+// GetWorkoutResultsInRangeQuery selects the results logged within [Start, End).
+// The bounds are instants, not civil dates: LoggedAt records the moment a score
+// was written down, so the caller supplies the zone's day boundaries.
+type GetWorkoutResultsInRangeQuery struct {
+	UserId uuid.UUID
+	Start  time.Time
+	End    time.Time
+}
+
+type GetWorkoutResultsInRangeQueryResult struct {
+	Results []*common.WorkoutResultResult
+}
+
+// GetLiftLogsInRangeQuery is the lift-side counterpart of
+// GetWorkoutResultsInRangeQuery; sets are logged against the lift, not against
+// the lifting workout that prescribed them.
+type GetLiftLogsInRangeQuery struct {
+	UserId uuid.UUID
+	Start  time.Time
+	End    time.Time
+}
+
+type GetLiftLogsInRangeQueryResult struct {
+	Results []*common.LiftLogResult
+}
+
 type GetSessionsByUserQuery struct {
 	UserId uuid.UUID
 }
