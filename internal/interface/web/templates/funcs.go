@@ -3,6 +3,7 @@ package templates
 import (
 	"fmt"
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/tyler/wodl/internal/interface/web/static"
@@ -32,13 +33,27 @@ func funcMap() template.FuncMap {
 			}
 			return *i
 		},
-		"inc":  func(i int) int { return i + 1 },
-		"dict": dict,
-		"when": when,
+		"inc":   func(i int) int { return i + 1 },
+		"dict":  dict,
+		"when":  when,
+		"label": label,
 		// Content-addressed URLs for cached assets, so a new build's markup can
 		// never be paired with the previous build's stylesheet.
 		"asset": static.AssetURL,
 	}
+}
+
+// label renders one of the domain's enums as something to read.
+//
+// They are stored snake_case — "for_time", "rounds_and_reps" — which passed
+// unnoticed inside a lowercase badge and does not once the same value is set as
+// a tracked-out capital above a heading. Only the rendering changes: the value
+// posted back is still the enum, so nothing downstream has to know.
+//
+// Takes any because the callers pass typed strings (entities.WorkoutType,
+// entities.LiftCategory) as often as plain ones.
+func label(v any) string {
+	return strings.ReplaceAll(fmt.Sprintf("%v", v), "_", " ")
 }
 
 // when formats an instant in the reader's zone, which the handler passes down

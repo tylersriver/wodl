@@ -74,6 +74,32 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   or new utility classes silently won't exist. Go itself needs no frontend toolchain.
 - UI components come from Basecoat: semantic markup (`.btn`, `.field > label + input`, `.card`)
   driven by `data-variant` / `data-size` attributes rather than class soup
+- The look is one dark theme — warm charcoal, soft cards, a single mint accent, numbers set
+  large. It lives entirely in `frontend/input.css`: Basecoat reads its colours from the shadcn
+  custom properties, so re-pointing `--background`/`--primary`/`--radius`/… on `:root, .dark`
+  re-skins every button, badge, input and dialog at once. **Never hardcode a colour in a
+  template** — reach for `bg-card`, `text-primary`, `border-primary/40` and the palette
+  follows. `<html class="dark">` is on every page *including log-in and register*, because
+  Basecoat's own `dark:` variants key off `html.dark`; without it its components disagree
+  with the palette. `--chevron-down-icon` and `--check-icon` must be restated alongside the
+  palette: Basecoat bakes the light theme's grey into those SVG data URIs, so an unrecoloured
+  chevron is invisible on charcoal
+- Three house component classes carry the look, all in `@layer components` and all
+  deliberately colourless so a utility picks the colour: `.eyebrow` (the tracked-out capital
+  label above a heading — mint when it names the thing you came for, muted when it names
+  context), `.numeral` (anything read as a quantity: display face, tabular figures, tight
+  tracking), and `.stat-tile` (one cell of a percentage ladder; `data-state="on"` marks 100%)
+- DM Sans (body) and Archivo (display, via the `font-display` utility) are self-hosted woff2
+  in `static/`. They are *variable* fonts, so one file per unicode range covers every weight —
+  don't add per-weight files. app.css names them by `/static/…` path rather than through
+  `asset`: the stylesheet asking for them already carries a content hash, and a different font
+  would arrive under a different name. New font files must be added to the `//go:embed` list
+  in static/embed.go, and `sw.js` pre-caches the latin ones so a cold offline launch doesn't
+  paint in the system face and reflow
+- Enums reach templates snake_case (`for_time`, `rounds_and_reps`). Render them through the
+  `label` helper, which swaps the underscores for spaces — the stored value is unchanged, and
+  what was tolerable inside a lowercase badge is not once the same string is set as an
+  `.eyebrow`
 - Modals are native `<dialog class="dialog sheet">` opened with `openDialog(id)`; `sheet` makes
   them full-width bottom sheets on phones
 - Session cards (`session_workout_card`, `session_warmup_card`) fold: a native `<details>`
@@ -81,9 +107,17 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   you hide it. The fold is remembered per card in `sessionStorage` under `data-card-key`,
   which is what keeps the steps you're done with folded after a round-trip to log a score;
   the tab-scoped store is deliberate, since that state is about the session you're in the
-  middle of. They use plain `bg-card rounded-xl border` rather than Basecoat's `.card` —
+  middle of. They use plain `bg-card rounded-2xl border` rather than Basecoat's `.card` —
   `.card` is unlayered and sets its own `padding-block` that no utility can turn off, which
   would stop the summary running the full height of its tap target
+- The installed app is `black-translucent` with `viewport-fit=cover`, so the web view
+  runs the full height of the screen and the status bar floats over it. That is what lets
+  the charcoal reach the edges rather than sit under a system-coloured strip, and the cost
+  is that the page must inset itself: the sticky header pads by `env(safe-area-inset-top)`
+  (padding the header, not the body, so the charcoal sits *behind* the status bar and the
+  bar stays pinned when the page scrolls), and log-in/register pad their own body. Without
+  it the wordmark renders under the Dynamic Island. The style is per-document, so every
+  page that has its own `<head>` has to state it or the bar flips back
 - Mobile nav is the bottom tab bar in layout.html (Today / Results / Sessions); its active
   item is set client-side from `location.pathname`, so handlers don't pass down a
   "current page" flag

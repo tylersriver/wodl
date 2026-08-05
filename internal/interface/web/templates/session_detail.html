@@ -7,13 +7,14 @@
             All sessions
         </a>
         <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="flex flex-col gap-2">
-                <h1 class="text-2xl font-semibold tracking-tight">{{.Session.Name}}</h1>
-                <div class="flex flex-wrap gap-2">
-                    <span class="badge" data-variant="outline">{{.Session.Date.Format "Mon, Jan 2, 2006"}}</span>
-                    <span class="badge" data-variant="secondary">{{len .Session.Workouts}} workouts</span>
+            <div class="flex flex-col gap-1.5">
+                <span class="eyebrow text-primary">{{.Session.Date.Format "Mon, Jan 2, 2006"}}</span>
+                <h1 class="font-display text-3xl font-extrabold tracking-tight">{{.Session.Name}}</h1>
+                <div class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    <span class="tabular-nums">{{len .Session.Workouts}} {{if eq (len .Session.Workouts) 1}}step{{else}}steps{{end}}</span>
                     {{if .Session.TotalTimeMinutes}}
-                    <span class="badge" data-variant="outline">{{derefInt .Session.TotalTimeMinutes}} min</span>
+                    <span class="opacity-40">&middot;</span>
+                    <span class="tabular-nums">~{{derefInt .Session.TotalTimeMinutes}} min</span>
                     {{end}}
                 </div>
             </div>
@@ -31,7 +32,7 @@
     {{end}}
 
     <div class="flex flex-col gap-3">
-        <h2 class="font-semibold">Workouts</h2>
+        <h2 class="eyebrow text-muted-foreground">Workouts</h2>
         {{if .Session.Workouts}}
         <ol class="flex flex-col gap-3">
             {{range $i, $w := .Session.Workouts}}

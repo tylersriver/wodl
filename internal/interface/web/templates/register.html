@@ -1,25 +1,40 @@
 {{define "register.html"}}
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  `dark` is not a toggle here — the app has one look, and Basecoat's own dark
+  variants key off `html.dark`. Log-in has to carry it too, or the first screen
+  anyone sees is the only light one.
+-->
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WODL - Register</title>
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#171614" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!--
+      Same as every other page: the installed app runs full-screen under the
+      status bar. Stated here too, because the style is per-document and
+      leaving it off would flip the bar back when a stale token lands you here.
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WODL" />
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
     <link rel="stylesheet" href="{{asset "app.css"}}" />
     {{template "timezone_script"}}
 </head>
-<body class="bg-muted/40 flex min-h-screen items-start justify-center p-4 sm:items-center sm:p-6">
+<!-- pt clears the Dynamic Island; see the note on the header in layout.html. -->
+<body class="bg-background flex min-h-screen items-start justify-center p-4 pt-[max(1rem,env(safe-area-inset-top,0px))] sm:items-center sm:p-6">
     <div class="w-full max-w-sm">
-        <div class="card bg-card sm:border sm:shadow-sm">
-            <header class="gap-1 p-6 pb-2 text-center">
-                <h1 class="text-2xl font-semibold tracking-tight">WODL</h1>
-                <p class="text-muted-foreground text-sm">Create your account</p>
+        <div class="sm:bg-card flex flex-col rounded-3xl sm:border">
+            <header class="flex flex-col items-center gap-2 p-6 pb-2 text-center">
+                <h1 class="font-display flex items-center gap-2 text-2xl font-extrabold tracking-tight uppercase">
+                    <span class="bg-primary size-2.5 shrink-0 rounded-full"></span>
+                    WODL
+                </h1>
+                <p class="eyebrow text-muted-foreground">Create your account</p>
             </header>
             <section class="flex flex-col gap-4 p-6">
                 {{if .Error}}

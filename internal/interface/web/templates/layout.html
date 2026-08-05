@@ -1,16 +1,21 @@
 {{define "head"}}
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  `dark` is not a toggle here — the app has one look. Basecoat's own dark
+  variants key off `html.dark`, so the class is what makes its components agree
+  with the palette app.css sets.
+-->
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WODL - Workout Logger</title>
     {{template "timezone_script"}}
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#171614" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WODL" />
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
@@ -32,14 +37,33 @@
     </script>
 </head>
 <body class="bg-background text-foreground min-h-screen">
-<header class="bg-background/95 sticky top-0 z-30 border-b backdrop-blur">
+<!--
+  The installed app is `black-translucent`, so the web view runs the full height
+  of the screen and the status bar — clock, Dynamic Island, battery — floats
+  over the top of it. That is what lets the charcoal reach the edges instead of
+  sitting under a system-coloured strip, but it means nothing keeps the page's
+  own chrome out from under the island except this padding.
+
+  It goes on the sticky <header> rather than on <body>: the header is what has a
+  background, so padding it puts the charcoal *behind* the status bar, and the
+  bar stays pinned at the true top of the screen when the page scrolls. The
+  inset is zero on every device without a cutout, so this costs those nothing.
+-->
+<header class="bg-background/95 sticky top-0 z-30 border-b pt-[env(safe-area-inset-top,0px)] backdrop-blur">
     <!--
       Shorter on phones, where the bar is pure chrome above the thing you came
       to read; the small breakpoint up it also carries the nav, so it keeps the
       roomier height there.
     -->
     <div class="mx-auto flex h-12 max-w-3xl items-center gap-2 px-4 sm:h-14">
-        <a href="/" class="text-lg font-semibold tracking-tight">WODL</a>
+        <!--
+          The wordmark carries the accent so the one mint thing above the fold
+          is the app's own name; everything else earns it by being a number.
+        -->
+        <a href="/" class="font-display flex items-center gap-2 text-lg font-extrabold tracking-tight uppercase">
+            <span class="bg-primary size-2 shrink-0 rounded-full"></span>
+            WODL
+        </a>
 
         <nav class="ml-4 hidden items-center gap-1 sm:flex">
             <a href="/" class="btn" data-variant="ghost" data-size="sm">Today</a>
@@ -70,22 +94,22 @@
   every destination is one tap away; hidden from the small-breakpoint up, where
   the header nav takes over.
 -->
-<nav class="tabbar bg-background fixed inset-x-0 bottom-0 z-40 border-t sm:hidden" aria-label="Main">
+<nav class="tabbar bg-background/95 fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur sm:hidden" aria-label="Main">
     <ul class="mx-auto grid max-w-3xl grid-cols-3">
         <li>
-            <a href="/" data-nav="/" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium">
+            <a href="/" data-nav="/" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1.5 text-[0.625rem] font-bold tracking-[0.12em] uppercase">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Today
             </a>
         </li>
         <li>
-            <a href="/results" data-nav="/results" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium">
+            <a href="/results" data-nav="/results" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1.5 text-[0.625rem] font-bold tracking-[0.12em] uppercase">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
                 Results
             </a>
         </li>
         <li>
-            <a href="/sessions" data-nav="/sessions" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium">
+            <a href="/sessions" data-nav="/sessions" class="text-muted-foreground flex min-h-16 flex-col items-center justify-center gap-1.5 text-[0.625rem] font-bold tracking-[0.12em] uppercase">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                 Sessions
             </a>
@@ -108,7 +132,7 @@
     });
     if (best) {
         best.classList.remove('text-muted-foreground');
-        best.classList.add('text-foreground');
+        best.classList.add('text-primary');
         best.setAttribute('aria-current', 'page');
     }
 })();

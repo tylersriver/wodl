@@ -8,8 +8,8 @@
         </a>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-col gap-1.5">
-                <h1 class="text-2xl font-semibold tracking-tight">{{.Workout.Name}}</h1>
-                <span class="badge w-fit" data-variant="secondary">{{.Workout.Type}}</span>
+                <span class="eyebrow text-muted-foreground">{{label .Workout.Type}}</span>
+                <h1 class="font-display text-3xl font-extrabold tracking-tight">{{.Workout.Name}}</h1>
             </div>
             <div class="flex gap-2">
                 <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('edit-workout-modal')">Edit</button>
@@ -21,10 +21,11 @@
     </div>
 
     {{if or .Workout.Description .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds (eq .Workout.Type "lifting")}}
-    <div class="card bg-card gap-3 rounded-xl border p-5">
-        <h2 class="font-semibold">The workout</h2>
+    <div class="bg-popover flex flex-col gap-4 rounded-3xl border p-6">
+        <h2 class="eyebrow text-primary">The workout</h2>
         {{if .Workout.Description}}
-        <pre class="font-sans text-sm whitespace-pre-wrap">{{.Workout.Description}}</pre>
+        <!-- The board's own wording, on an accent rail so it reads as the thing itself. -->
+        <pre class="border-primary/40 font-sans text-[0.9375rem] leading-relaxed whitespace-pre-wrap border-l-2 pl-4">{{.Workout.Description}}</pre>
         {{end}}
         {{if or .Workout.TimeCap .Workout.Rounds .Workout.IntervalSeconds}}
         <div class="flex flex-wrap gap-2">
@@ -40,8 +41,8 @@
     </div>
     {{end}}
 
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">Log a result</h2>
+    <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
+        <h2 class="eyebrow text-muted-foreground">Log a result</h2>
         <form method="POST" action="/workouts/{{.Workout.Id}}/results" class="flex flex-col gap-4">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="field">
@@ -52,12 +53,12 @@
                     <label for="result-score-type">Score type</label>
                     <select id="result-score-type" name="score_type">
                         {{range .ScoreTypes}}
-                        <option value="{{.}}">{{.}}</option>
+                        <option value="{{.}}">{{label .}}</option>
                         {{end}}
                     </select>
                 </div>
             </div>
-            <label class="hover:bg-accent/50 flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3">
+            <label class="hover:bg-accent/50 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3">
                 <input type="checkbox" name="rx" class="input" />
                 <span class="text-sm">Did it exactly as written (Rx)</span>
             </label>
@@ -70,17 +71,17 @@
     </div>
 
     {{if .Results}}
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">History</h2>
+    <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
+        <h2 class="eyebrow text-muted-foreground">History</h2>
 
         <!-- Cards on phones, table from sm up. -->
         <ul class="flex flex-col gap-3 sm:hidden">
             {{range .Results}}
-            <li class="flex flex-col gap-2 rounded-lg border p-3">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-medium">{{.Score}}</span>
-                    <span class="badge" data-variant="outline">{{.ScoreType}}</span>
-                    {{if .Rx}}<span class="badge" data-variant="secondary">Rx</span>{{end}}
+            <li class="bg-muted/40 flex flex-col gap-2 rounded-xl p-3">
+                <div class="flex flex-wrap items-baseline gap-2">
+                    <span class="numeral text-xl">{{.Score}}</span>
+                    <span class="badge" data-variant="outline">{{label .ScoreType}}</span>
+                    {{if .Rx}}<span class="badge" data-variant="primary">Rx</span>{{end}}
                 </div>
                 <span class="text-muted-foreground text-sm">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</span>
                 {{if .Notes}}<p class="text-muted-foreground text-sm">{{.Notes}}</p>{{end}}
@@ -88,7 +89,7 @@
             {{end}}
         </ul>
 
-        <div class="table-container hidden overflow-x-auto rounded-lg border sm:block">
+        <div class="table-container hidden overflow-x-auto rounded-xl border sm:block">
             <table class="table">
                 <thead>
                     <tr>
@@ -103,9 +104,9 @@
                     {{range .Results}}
                     <tr>
                         <td class="whitespace-nowrap">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</td>
-                        <td class="font-medium">{{.Score}}</td>
-                        <td>{{.ScoreType}}</td>
-                        <td>{{if .Rx}}<span class="badge" data-variant="secondary">Rx</span>{{end}}</td>
+                        <td class="numeral">{{.Score}}</td>
+                        <td>{{label .ScoreType}}</td>
+                        <td>{{if .Rx}}<span class="badge" data-variant="primary">Rx</span>{{end}}</td>
                         <td>{{.Notes}}</td>
                     </tr>
                     {{end}}
@@ -128,7 +129,7 @@
                 <label for="edit-type">Type</label>
                 <select id="edit-type" name="type" onchange="toggleLiftingFields(this, 'edit')">
                     {{range $.WorkoutTypes}}
-                    <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{.}}</option>
+                    <option value="{{.}}" {{if eq (printf "%s" .) $.Workout.Type}}selected{{end}}>{{label .}}</option>
                     {{end}}
                 </select>
             </div>

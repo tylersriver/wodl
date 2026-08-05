@@ -12,7 +12,7 @@
       is no script to do it automatically.
     -->
     <div class="flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold tracking-tight">Sessions</h1>
+        <h1 class="font-display text-3xl font-extrabold tracking-tight">Sessions</h1>
         <div class="ml-auto flex items-center gap-2">
             <form method="get" action="/sessions" class="contents">
                 <select name="view" class="select w-auto shrink-0" aria-label="How to show sessions"
@@ -57,15 +57,14 @@
 {{if .Sessions}}
 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
     {{range .Sessions}}
-    <a href="/sessions/{{.Id}}" class="card bg-card hover:bg-accent/50 gap-2 rounded-xl border p-4 transition-colors">
-        <span class="flex items-start justify-between gap-2">
-            <span class="font-medium">{{.Name}}</span>
-            <span class="text-muted-foreground shrink-0 text-sm">{{.Date.Format "Mon, Jan 2"}}</span>
-        </span>
-        <span class="flex flex-wrap gap-2">
-            <span class="badge" data-variant="secondary">{{len .Workouts}} workouts</span>
+    <a href="/sessions/{{.Id}}" class="bg-card hover:border-primary/40 flex flex-col gap-1 rounded-2xl border p-4 transition-colors">
+        <span class="eyebrow text-primary">{{.Date.Format "Mon, Jan 2"}}</span>
+        <span class="font-display text-lg font-bold tracking-tight">{{.Name}}</span>
+        <span class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span class="tabular-nums">{{len .Workouts}} {{if eq (len .Workouts) 1}}step{{else}}steps{{end}}</span>
             {{if .TotalTimeMinutes}}
-            <span class="badge" data-variant="outline">{{derefInt .TotalTimeMinutes}} min</span>
+            <span class="opacity-40">&middot;</span>
+            <span class="tabular-nums">~{{derefInt .TotalTimeMinutes}} min</span>
             {{end}}
         </span>
         {{if .Warmup}}
@@ -75,7 +74,7 @@
     {{end}}
 </div>
 {{else}}
-<div class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center">
+<div class="flex flex-col items-center gap-4 rounded-3xl border border-dashed px-6 py-14 text-center">
     <p class="text-muted-foreground">No sessions planned yet.</p>
     <button type="button" class="btn" onclick="openDialog('create-session-modal')">Plan your first session</button>
 </div>
@@ -83,22 +82,22 @@
 {{end}}
 
 {{define "sessions_week"}}
-<div class="card bg-card gap-4 rounded-xl border p-4">
+<div class="bg-card flex flex-col gap-4 rounded-2xl border p-4">
     <div class="flex items-center justify-between gap-2">
-        <a href="/sessions?view=week&week={{.Week.PrevParam}}" class="btn" data-variant="ghost" data-size="sm" aria-label="Previous week">&larr;</a>
+        <a href="/sessions?view=week&week={{.Week.PrevParam}}" class="btn size-9 shrink-0 rounded-full" data-variant="ghost" aria-label="Previous week"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></a>
         <div class="flex flex-col items-center">
-            <h2 class="text-center font-semibold">{{.Week.Label}}</h2>
+            <h2 class="font-display text-center font-bold tracking-tight">{{.Week.Label}}</h2>
             <a href="/sessions?view=week" class="text-muted-foreground text-xs underline underline-offset-4">This week</a>
         </div>
-        <a href="/sessions?view=week&week={{.Week.NextParam}}" class="btn" data-variant="ghost" data-size="sm" aria-label="Next week">&rarr;</a>
+        <a href="/sessions?view=week&week={{.Week.NextParam}}" class="btn size-9 shrink-0 rounded-full" data-variant="ghost" aria-label="Next week"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a>
     </div>
 
     <div class="grid grid-cols-1 gap-2 md:grid-cols-7">
         {{range .Week.Days}}
-        <div class="flex min-h-16 flex-col gap-2 rounded-lg border p-2 md:min-h-32 {{if .IsToday}}border-foreground{{end}}">
+        <div class="flex min-h-16 flex-col gap-2 rounded-xl border p-2 md:min-h-32 {{if .IsToday}}border-primary bg-primary/5{{end}}">
             <div class="flex items-baseline justify-between gap-2">
-                <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{{.Date.Format "Mon"}}</span>
-                <span class="font-semibold tabular-nums">{{.Date.Day}}</span>
+                <span class="eyebrow {{if .IsToday}}text-primary{{else}}text-muted-foreground{{end}}">{{.Date.Format "Mon"}}</span>
+                <span class="numeral">{{.Date.Day}}</span>
             </div>
             {{if .Sessions}}
             <div class="flex flex-col gap-1">
@@ -114,17 +113,17 @@
 {{end}}
 
 {{define "sessions_calendar"}}
-<div class="card bg-card gap-4 rounded-xl border p-4">
+<div class="bg-card flex flex-col gap-4 rounded-2xl border p-4">
     <div class="flex items-center justify-between gap-2">
-        <a href="/sessions?view=calendar&month={{.Calendar.PrevParam}}" class="btn" data-variant="ghost" data-size="sm" aria-label="Previous month">&larr;</a>
+        <a href="/sessions?view=calendar&month={{.Calendar.PrevParam}}" class="btn size-9 shrink-0 rounded-full" data-variant="ghost" aria-label="Previous month"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></a>
         <div class="flex flex-col items-center">
-            <h2 class="font-semibold">{{.Calendar.MonthLabel}}</h2>
+            <h2 class="font-display font-bold tracking-tight">{{.Calendar.MonthLabel}}</h2>
             <a href="/sessions?view=calendar" class="text-muted-foreground text-xs underline underline-offset-4">Today</a>
         </div>
-        <a href="/sessions?view=calendar&month={{.Calendar.NextParam}}" class="btn" data-variant="ghost" data-size="sm" aria-label="Next month">&rarr;</a>
+        <a href="/sessions?view=calendar&month={{.Calendar.NextParam}}" class="btn size-9 shrink-0 rounded-full" data-variant="ghost" aria-label="Next month"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></a>
     </div>
 
-    <div class="text-muted-foreground grid grid-cols-7 gap-1 pb-1 text-xs font-medium tracking-wide uppercase">
+    <div class="eyebrow text-muted-foreground grid grid-cols-7 gap-1 pb-1">
         <div class="text-center">Sun</div>
         <div class="text-center">Mon</div>
         <div class="text-center">Tue</div>
@@ -137,12 +136,16 @@
     <div class="grid grid-cols-7 gap-1">
         {{range .Calendar.Weeks}}
             {{range .}}
-            <div class="flex min-h-16 flex-col gap-1 rounded-md border p-1 text-xs sm:min-h-24
+            <!-- A tighter corner than the rest of the app: at 40px wide the
+                 shared radius turns a day cell into a pill. -->
+            <div class="flex min-h-16 flex-col gap-1 rounded-[0.625rem] border p-1 text-xs sm:min-h-24
                 {{if not .InMonth}}opacity-40{{end}}
-                {{if .IsToday}}border-foreground{{end}}">
-                <span class="font-semibold tabular-nums">{{.Date.Day}}</span>
+                {{if .IsToday}}border-primary bg-primary/5{{end}}">
+                <span class="numeral {{if .IsToday}}text-primary{{end}}">{{.Date.Day}}</span>
                 {{range .Sessions}}
-                <a href="/sessions/{{.Id}}" class="badge max-w-full truncate" data-variant="secondary">{{.Name}}</a>
+                <!-- justify-start, or Basecoat's centring truncates the name
+                     from both ends and a cell shows its middle. -->
+                <a href="/sessions/{{.Id}}" class="badge max-w-full justify-start truncate" data-variant="secondary">{{.Name}}</a>
                 {{end}}
             </div>
             {{end}}

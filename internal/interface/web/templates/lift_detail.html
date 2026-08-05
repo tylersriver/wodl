@@ -8,8 +8,8 @@
         </a>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-col gap-1.5">
-                <h1 class="text-2xl font-semibold tracking-tight">{{.Lift.Name}}</h1>
-                <span class="badge w-fit" data-variant="secondary">{{.Lift.Category}}</span>
+                <span class="eyebrow text-muted-foreground">{{label .Lift.Category}}</span>
+                <h1 class="font-display text-3xl font-extrabold tracking-tight">{{.Lift.Name}}</h1>
             </div>
             <div class="flex gap-2">
                 <button type="button" class="btn" data-variant="outline" data-size="sm" onclick="openDialog('edit-lift-modal')">Edit</button>
@@ -21,37 +21,28 @@
     </div>
 
     {{if .Lift.OneRepMax}}
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <div class="flex flex-col gap-1">
-            <span class="text-muted-foreground text-sm">Best single</span>
-            <span class="text-3xl font-semibold tabular-nums">{{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
+    <!--
+      The number you came for, set at the size it deserves — the whole point of
+      opening a lift is to see what you have hit and work percentages off it.
+      Not Basecoat's `.card`: that rule is unlayered and sets a padding-block no
+      utility here can turn off.
+    -->
+    <div class="bg-popover flex flex-col gap-5 rounded-3xl border p-6">
+        <div class="flex flex-col gap-2">
+            <span class="eyebrow text-primary">Best single</span>
+            <span class="numeral text-6xl leading-none">{{printf "%.0f" (deref .Lift.OneRepMax)}}</span>
         </div>
-        <details class="group">
-            <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-open:rotate-90"><path d="m9 18 6-6-6-6"/></svg>
-                Percentages of your best single
-            </summary>
-            <div class="table-container mt-2 max-h-80 overflow-y-auto rounded-lg border">
-                <table class="table">
-                    <thead>
-                        <tr><th>%</th><th class="text-right">Weight</th></tr>
-                    </thead>
-                    <tbody>
-                        {{range .PctKeys}}
-                        <tr>
-                            <td class="tabular-nums">{{.}}%</td>
-                            <td class="text-right tabular-nums">{{printf "%.1f" (index $.PercentageTable .)}}</td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-            </div>
-        </details>
+        {{if .PctKeys}}
+        <div class="flex flex-col gap-1">
+            <span class="eyebrow text-muted-foreground">Percentages</span>
+            {{template "percentage_tiles" .}}
+        </div>
+        {{end}}
     </div>
     {{end}}
 
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">Log a set</h2>
+    <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
+        <h2 class="eyebrow text-muted-foreground">Log a set</h2>
         <form method="POST" action="/lifts/{{.Lift.Id}}/logs" class="flex flex-col gap-4">
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div class="field">
@@ -76,7 +67,7 @@
                 </div>
             </div>
             <p class="text-muted-foreground text-sm">
-                Estimated best single: <span id="est-1rm" class="text-foreground font-semibold tabular-nums">--</span>
+                Estimated best single: <span id="est-1rm" class="numeral text-foreground text-lg">--</span>
             </p>
             <div class="field">
                 <label for="log-notes">Notes</label>
@@ -87,15 +78,15 @@
     </div>
 
     {{if .Logs}}
-    <div class="card bg-card gap-4 rounded-xl border p-5">
-        <h2 class="font-semibold">History</h2>
+    <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
+        <h2 class="eyebrow text-muted-foreground">History</h2>
 
         <!-- Phones get one card per entry; the nine-column table only fits from sm up. -->
         <ul class="flex flex-col gap-3 sm:hidden">
             {{range .Logs}}
-            <li class="flex flex-col gap-2 rounded-lg border p-3">
+            <li class="bg-muted/40 flex flex-col gap-2 rounded-xl p-3">
                 <div class="flex items-start justify-between gap-2">
-                    <span class="font-medium tabular-nums">{{printf "%.1f" .Weight}} &times; {{.Reps}}{{if gt .Sets 1}} &times; {{.Sets}} sets{{end}}</span>
+                    <span class="numeral text-lg">{{printf "%.1f" .Weight}} &times; {{.Reps}}{{if gt .Sets 1}} &times; {{.Sets}} sets{{end}}</span>
                     <button type="button" class="btn shrink-0" data-variant="ghost" data-size="sm"
                         hx-delete="/lifts/{{$.Lift.Id}}/logs/{{.Id}}"
                         hx-confirm="Delete this log entry?" aria-label="Delete entry">
@@ -113,7 +104,7 @@
             {{end}}
         </ul>
 
-        <div class="table-container hidden overflow-x-auto rounded-lg border sm:block">
+        <div class="table-container hidden overflow-x-auto rounded-xl border sm:block">
             <table class="table">
                 <thead>
                     <tr>
@@ -171,7 +162,7 @@
                 <label for="edit-lift-category">Category</label>
                 <select id="edit-lift-category" name="category">
                     {{range $.Categories}}
-                    <option value="{{.}}" {{if eq (printf "%s" .) $.Lift.Category}}selected{{end}}>{{.}}</option>
+                    <option value="{{.}}" {{if eq (printf "%s" .) $.Lift.Category}}selected{{end}}>{{label .}}</option>
                     {{end}}
                 </select>
             </div>

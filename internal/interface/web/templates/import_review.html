@@ -6,7 +6,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             Start over
         </a>
-        <h1 class="text-2xl font-semibold tracking-tight">Check what we read</h1>
+        <h1 class="font-display mt-1 text-3xl font-extrabold tracking-tight">Check what we read</h1>
         <p class="text-muted-foreground text-sm">Nothing is saved yet. Fix anything that's wrong, then save.</p>
     </div>
 
@@ -18,8 +18,8 @@
     {{end}}
 
     <form method="POST" action="/import" class="flex flex-col gap-5">
-        <div class="card bg-card gap-4 rounded-xl border p-5">
-            <h2 class="font-semibold">Session</h2>
+        <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
+            <h2 class="eyebrow text-muted-foreground">Session</h2>
             <div class="field">
                 <label for="import-name">Name</label>
                 <input type="text" id="import-name" name="name" value="{{.Session.Name}}" />
@@ -42,15 +42,15 @@
         </div>
 
         <div class="flex items-center justify-between gap-3">
-            <h2 class="font-semibold">Workouts</h2>
+            <h2 class="eyebrow text-muted-foreground">Workouts</h2>
             <span class="text-muted-foreground text-sm">{{len .Session.Workouts}} found</span>
         </div>
 
         <div id="import-workouts" class="flex flex-col gap-4">
             {{range $i, $w := .Session.Workouts}}
-            <div class="card bg-card import-workout gap-4 rounded-xl border p-5">
+            <div class="bg-card import-workout flex flex-col gap-4 rounded-2xl border p-5">
                 <div class="flex items-center justify-between gap-3">
-                    <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Step {{inc $i}}</span>
+                    <span class="eyebrow text-primary" data-step-label>Step {{inc $i}}</span>
                     <button type="button" class="btn import-remove" data-variant="ghost" data-size="sm">Remove</button>
                 </div>
                 <div class="field">
@@ -61,7 +61,7 @@
                     <label>Type</label>
                     <select name="workout_type">
                         {{range $.WorkoutTypes}}
-                        <option value="{{.}}" {{if eq (printf "%s" .) $w.Type}}selected{{end}}>{{.}}</option>
+                        <option value="{{.}}" {{if eq (printf "%s" .) $w.Type}}selected{{end}}>{{label .}}</option>
                         {{end}}
                     </select>
                 </div>
@@ -96,7 +96,7 @@
                         <select name="workout_lift_category">
                             <option value="">(none)</option>
                             {{range $.Categories}}
-                            <option value="{{.}}" {{if eq (printf "%s" .) $w.LiftCategory}}selected{{end}}>{{.}}</option>
+                            <option value="{{.}}" {{if eq (printf "%s" .) $w.LiftCategory}}selected{{end}}>{{label .}}</option>
                             {{end}}
                         </select>
                     </div>
@@ -127,7 +127,7 @@ document.getElementById('import-workouts').addEventListener('click', function (e
     if (cards.length <= 1) return;
     button.closest('.import-workout').remove();
     this.querySelectorAll('.import-workout').forEach(function (card, i) {
-        card.querySelector('.text-xs').textContent = 'Step ' + (i + 1);
+        card.querySelector('[data-step-label]').textContent = 'Step ' + (i + 1);
     });
 });
 </script>
