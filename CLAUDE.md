@@ -110,6 +110,14 @@ cd frontend && npm run watch                  # Same, rebuilding on change
   middle of. They use plain `bg-card rounded-2xl border` rather than Basecoat's `.card` —
   `.card` is unlayered and sets its own `padding-block` that no utility can turn off, which
   would stop the summary running the full height of its tap target
+- The installed app is `black-translucent` with `viewport-fit=cover`, so the web view
+  runs the full height of the screen and the status bar floats over it. That is what lets
+  the charcoal reach the edges rather than sit under a system-coloured strip, and the cost
+  is that the page must inset itself: the sticky header pads by `env(safe-area-inset-top)`
+  (padding the header, not the body, so the charcoal sits *behind* the status bar and the
+  bar stays pinned when the page scrolls), and log-in/register pad their own body. Without
+  it the wordmark renders under the Dynamic Island. The style is per-document, so every
+  page that has its own `<head>` has to state it or the bar flips back
 - Mobile nav is the bottom tab bar in layout.html (Today / Results / Sessions); its active
   item is set client-side from `location.pathname`, so handlers don't pass down a
   "current page" flag
