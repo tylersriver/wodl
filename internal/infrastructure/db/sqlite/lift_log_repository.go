@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/domain/entities"
@@ -60,6 +61,21 @@ func (r *LiftLogRepository) FindByUserId(userId uuid.UUID, limit int) ([]*entiti
 	)
 	if err != nil {
 		return nil, fmt.Errorf("querying lift logs: %w", err)
+	}
+	defer rows.Close()
+	return r.scanRows(rows)
+}
+
+func (r *LiftLogRepository) FindByUserInRange(userId uuid.UUID, start, end time.Time) ([]*entities.LiftLog, error) {
+	rows, err := r.db.Query(
+		`SELECT id, user_id, lift_id, weight, reps, sets, rpe, estimated_1rm, percent_of_1rm, notes, logged_at, created_at
+		 FROM lift_logs
+		 WHERE user_id = ? AND logged_at >= ? AND logged_at < ?
+		 ORDER BY logged_at`,
+		userId.String(), start, end,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying lift logs in range: %w", err)
 	}
 	defer rows.Close()
 	return r.scanRows(rows)

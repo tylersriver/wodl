@@ -69,6 +69,29 @@ func todayIn(loc *time.Location) time.Time {
 	return civilDate(time.Now().In(loc))
 }
 
+// dayIn is the calendar day an instant fell on, as a civil date.
+//
+// The mirror image of civilDate: a set logged at 7pm in Denver is an instant
+// that has already turned Wednesday in UTC, and it belongs to Tuesday's plan.
+// Reducing it in the reader's zone is what lines results up with the days they
+// were done on.
+func dayIn(t time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.Local
+	}
+	return civilDate(t.In(loc))
+}
+
+// startOfDayIn is the instant a civil date begins in the given zone, which is
+// what turns a range of days into a range of timestamps to select on.
+func startOfDayIn(day time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.Local
+	}
+	d := civilDate(day)
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, loc)
+}
+
 // parseCivilDate reads a YYYY-MM-DD form value or query parameter. Such a value
 // never carries a zone, so it is a civil date by construction.
 func parseCivilDate(v string) (time.Time, error) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -440,4 +441,154 @@ func TestE2E_SessionCardsAreCollapsible(t *testing.T) {
 	body, _ = io.ReadAll(resp.Body)
 	assert.Contains(t, string(body), `data-card-key="workout-`+workoutId+`"`)
 	assert.Contains(t, string(body), `data-card-key="warmup-`+sessionId+`"`)
+}
+
+// loggedMarks counts the "done" ticks on a sessions page. The mark is only ever
+// rendered for a day something was logged on, so its count is the assertion.
+func loggedMarks(page string) int {
+	return strings.Count(page, `aria-label="Logged"`)
+}
+
+func getPage(t *testing.T, client *http.Client, url string) string {
+	t.Helper()
+	resp, err := client.Get(url)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	return string(body)
+}
+
+// The week and month views mark a day whose plan was at least started. Nothing
+// records that a session was performed — it is a plan — so the mark is earned by
+// logging something the day prescribed, on that day.
+func TestE2E_SessionViewsMarkLoggedDays(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"marker@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Marker"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name":        {"Fran"},
+		"type":        {"for_time"},
+		"description": {"21-15-9 thrusters and pull-ups"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	today := time.Now().Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Yesterday's plan, which was never done.
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date":        {yesterday},
+		"name":        {"Yesterday"},
+		"workout_ids": {workoutId},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	// Today's plan, prescribing the same workout.
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date":        {today},
+		"name":        {"Today"},
+		"workout_ids": {workoutId},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	// A planned day is not a done one.
+	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
+		"nothing is logged yet, so no day is marked")
+	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
+		"nothing is logged yet, so no day is marked")
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
+		"score":      {"3:21"},
+		"score_type": {"time"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	// Exactly one: the score was logged today, and a repeated benchmark must not
+	// backdate itself onto every session that ever prescribed it.
+	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
+		"only the day the score was logged on is marked")
+	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
+		"only the day the score was logged on is marked")
+}
+
+// Lifting steps never produce a workout result: sets are logged against the lift
+// itself. The mark has to follow them there or a squat day never reads as done.
+func TestE2E_SessionViewsMarkLoggedLiftSets(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"lift-marker@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Lift Marker"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/lifts", url.Values{
+		"name":        {"Back Squat"},
+		"category":    {"squat"},
+		"one_rep_max": {"315"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var liftId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM lifts LIMIT 1").Scan(&liftId))
+
+	today := time.Now().Format("2006-01-02")
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"type":        {"lifting"},
+		"lift_id":     {liftId},
+		"date":        {today},
+		"description": {"5x3 @ 80%"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date":        {today},
+		"name":        {"Squat day"},
+		"workout_ids": {workoutId},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
+		"the squat is only prescribed so far")
+
+	resp, err = client.PostForm(app.Server.URL+"/lifts/"+liftId+"/logs", url.Values{
+		"weight": {"255"},
+		"reps":   {"3"},
+		"sets":   {"5"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
+		"sets logged against the lift mark the day that prescribed it")
+	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
+		"sets logged against the lift mark the day that prescribed it")
 }

@@ -81,6 +81,19 @@
 {{end}}
 {{end}}
 
+{{/*
+  The mark on a day whose plan was at least started. Nothing records that a
+  session was performed — it is a plan — so what this actually says is that
+  something the day prescribed was logged on it. Absence is the other half of
+  the signal: an unlogged day carries no mark at all rather than an empty one,
+  which is what keeps a month of cells quiet enough for the ticks to read.
+*/}}
+{{define "day_logged_mark"}}
+<span class="text-primary shrink-0 leading-none" role="img" aria-label="Logged" title="Logged">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+</span>
+{{end}}
+
 {{define "sessions_week"}}
 <div class="bg-card flex flex-col gap-4 rounded-2xl border p-4">
     <div class="flex items-center justify-between gap-2">
@@ -97,7 +110,10 @@
         <div class="flex min-h-16 flex-col gap-2 rounded-xl border p-2 md:min-h-32 {{if .IsToday}}border-primary bg-primary/5{{end}}">
             <div class="flex items-baseline justify-between gap-2">
                 <span class="eyebrow {{if .IsToday}}text-primary{{else}}text-muted-foreground{{end}}">{{.Date.Format "Mon"}}</span>
-                <span class="numeral">{{.Date.Day}}</span>
+                <span class="flex items-center gap-1">
+                    {{if .Logged}}{{template "day_logged_mark"}}{{end}}
+                    <span class="numeral">{{.Date.Day}}</span>
+                </span>
             </div>
             {{if .Sessions}}
             <div class="flex flex-col gap-1">
@@ -141,7 +157,10 @@
             <div class="flex min-h-16 flex-col gap-1 rounded-[0.625rem] border p-1 text-xs sm:min-h-24
                 {{if not .InMonth}}opacity-40{{end}}
                 {{if .IsToday}}border-primary bg-primary/5{{end}}">
-                <span class="numeral {{if .IsToday}}text-primary{{end}}">{{.Date.Day}}</span>
+                <div class="flex items-center justify-between gap-1">
+                    <span class="numeral {{if .IsToday}}text-primary{{end}}">{{.Date.Day}}</span>
+                    {{if .Logged}}{{template "day_logged_mark"}}{{end}}
+                </div>
                 {{range .Sessions}}
                 <!-- justify-start, or Basecoat's centring truncates the name
                      from both ends and a cell shows its middle. -->

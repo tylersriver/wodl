@@ -62,7 +62,8 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	workouts, _ := h.workoutService.GetWorkoutsByUser(&query.GetWorkoutsByUserQuery{UserId: userId})
 
-	today := todayIn(requestLocation(r))
+	loc := requestLocation(r)
+	today := todayIn(loc)
 	data := map[string]interface{}{
 		"View":     view,
 		"Sessions": sessions.Results,
@@ -84,7 +85,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid month", http.StatusBadRequest)
 			return
 		}
-		cal, err := h.buildCalendar(userId, month, today)
+		cal, err := h.buildCalendar(userId, month, today, loc)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -96,7 +97,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid week", http.StatusBadRequest)
 			return
 		}
-		wk, err := h.buildWeek(userId, weekStart, today)
+		wk, err := h.buildWeek(userId, weekStart, today, loc)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -269,9 +270,13 @@ func parseMonthParam(v string, today time.Time) (time.Time, error) {
 // CalendarDay is one cell in the month grid. If InMonth is false the day belongs
 // to the preceding or following month and is rendered greyed out.
 type CalendarDay struct {
-	Date     time.Time
-	InMonth  bool
-	IsToday  bool
+	Date    time.Time
+	InMonth bool
+	IsToday bool
+	// Logged marks a day whose plan was at least started: something from one of
+	// its sessions was recorded on it. A session is only ever a plan, so this is
+	// the nearest thing to "done" the model has — see loggedIndex.
+	Logged   bool
 	Sessions []*common.SessionResult
 }
 
@@ -285,13 +290,18 @@ type CalendarMonth struct {
 	Weeks      [][]CalendarDay
 }
 
-func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart, today time.Time) (*CalendarMonth, error) {
+func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart, today time.Time, loc *time.Location) (*CalendarMonth, error) {
 	// Range spans the 6-row grid we always render, so leading/trailing days
 	// from neighbouring months are included if they carry sessions.
 	gridStart := monthStart.AddDate(0, 0, -int(monthStart.Weekday()))
 	gridEnd := gridStart.AddDate(0, 0, 42)
 
 	byDay, err := h.sessionsByDay(userId, gridStart, gridEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	logged, err := h.buildLoggedIndex(userId, gridStart, gridEnd, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -306,6 +316,7 @@ func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart, today time.
 				Date:     day,
 				InMonth:  day.Month() == monthStart.Month() && day.Year() == monthStart.Year(),
 				IsToday:  day.Equal(today),
+				Logged:   logged.anyDone(byDay[key]),
 				Sessions: byDay[key],
 			}
 		}
@@ -346,10 +357,15 @@ type CalendarWeek struct {
 	Days      []CalendarDay
 }
 
-func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time) (*CalendarWeek, error) {
+func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time, loc *time.Location) (*CalendarWeek, error) {
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
 	byDay, err := h.sessionsByDay(userId, weekStart, weekEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	logged, err := h.buildLoggedIndex(userId, weekStart, weekEnd, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -362,6 +378,7 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time)
 			Date:     day,
 			InMonth:  true,
 			IsToday:  day.Equal(today),
+			Logged:   logged.anyDone(byDay[key]),
 			Sessions: byDay[key],
 		}
 	}
@@ -386,6 +403,96 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time)
 		CurrParam: formatCivil(weekStart),
 		Days:      days,
 	}, nil
+}
+
+// loggedIndex answers "was any of this day's plan actually done?".
+//
+// Nothing records that a session was performed — a session is the plan, and
+// results are recorded against the individual lift or workout. So the question
+// is answered by coincidence in time: a day counts as done when something one of
+// its sessions prescribes was logged on that same day. Matching on the day as
+// well as the workout is what keeps a repeated benchmark from marking every
+// session it has ever appeared in.
+//
+// Lifting steps are held apart because sets are logged against the lift itself,
+// not against the workout that prescribed them, so those never produce a
+// workout_result to find.
+type loggedIndex struct {
+	workouts map[string]map[uuid.UUID]bool
+	lifts    map[string]map[uuid.UUID]bool
+}
+
+// done reports whether anything in the session was logged on the session's own
+// day.
+func (l *loggedIndex) done(s *common.SessionResult) bool {
+	if l == nil || s == nil {
+		return false
+	}
+	day := formatCivil(s.Date)
+	for _, w := range s.Workouts {
+		if l.workouts[day][w.Id] {
+			return true
+		}
+		if w.LiftId != nil && l.lifts[day][*w.LiftId] {
+			return true
+		}
+	}
+	return false
+}
+
+// anyDone reports whether any of a day's sessions was started.
+func (l *loggedIndex) anyDone(sessions []*common.SessionResult) bool {
+	for _, s := range sessions {
+		if l.done(s) {
+			return true
+		}
+	}
+	return false
+}
+
+// buildLoggedIndex reads everything the user logged over the civil days
+// [start, end) — measured in their own zone, since that is where the days the
+// grid draws are — and indexes it by the day it was logged on.
+func (h *SessionHandler) buildLoggedIndex(userId uuid.UUID, start, end time.Time, loc *time.Location) (*loggedIndex, error) {
+	from, to := startOfDayIn(start, loc), startOfDayIn(end, loc)
+
+	idx := &loggedIndex{
+		workouts: map[string]map[uuid.UUID]bool{},
+		lifts:    map[string]map[uuid.UUID]bool{},
+	}
+
+	results, err := h.workoutService.GetWorkoutResultsInRange(&query.GetWorkoutResultsInRangeQuery{
+		UserId: userId,
+		Start:  from,
+		End:    to,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range results.Results {
+		mark(idx.workouts, formatCivil(dayIn(r.LoggedAt, loc)), r.WorkoutId)
+	}
+
+	logs, err := h.liftService.GetLiftLogsInRange(&query.GetLiftLogsInRangeQuery{
+		UserId: userId,
+		Start:  from,
+		End:    to,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, l := range logs.Results {
+		mark(idx.lifts, formatCivil(dayIn(l.LoggedAt, loc)), l.LiftId)
+	}
+
+	return idx, nil
+}
+
+func mark(m map[string]map[uuid.UUID]bool, day string, id uuid.UUID) {
+	if m[day] == nil {
+		m[day] = map[uuid.UUID]bool{}
+	}
+	m[day][id] = true
 }
 
 // sessionsByDay buckets the sessions in [start, end) by their calendar day.

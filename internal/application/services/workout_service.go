@@ -159,6 +159,19 @@ func (s *WorkoutService) GetWorkoutById(q *query.GetWorkoutByIdQuery) (*query.Ge
 	return result, nil
 }
 
+func (s *WorkoutService) GetWorkoutResultsInRange(q *query.GetWorkoutResultsInRangeQuery) (*query.GetWorkoutResultsInRangeQueryResult, error) {
+	results, err := s.workoutResultRepo.FindByUserInRange(q.UserId, q.Start, q.End)
+	if err != nil {
+		return nil, err
+	}
+
+	var queryResult query.GetWorkoutResultsInRangeQueryResult
+	for _, r := range results {
+		queryResult.Results = append(queryResult.Results, mapper.WorkoutResultToResult(r))
+	}
+	return &queryResult, nil
+}
+
 func (s *WorkoutService) GetRecentWorkoutResults(q *query.GetRecentWorkoutResultsQuery) (*query.GetRecentWorkoutResultsQueryResult, error) {
 	results, err := s.workoutResultRepo.FindByUserId(q.UserId, q.Limit)
 	if err != nil {

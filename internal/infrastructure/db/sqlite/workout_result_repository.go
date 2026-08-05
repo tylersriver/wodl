@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/domain/entities"
@@ -58,6 +59,21 @@ func (r *WorkoutResultRepository) FindByUserId(userId uuid.UUID, limit int) ([]*
 	)
 	if err != nil {
 		return nil, fmt.Errorf("querying workout results: %w", err)
+	}
+	defer rows.Close()
+	return r.scanRows(rows)
+}
+
+func (r *WorkoutResultRepository) FindByUserInRange(userId uuid.UUID, start, end time.Time) ([]*entities.WorkoutResult, error) {
+	rows, err := r.db.Query(
+		`SELECT id, user_id, workout_id, score, score_type, rx, notes, logged_at, created_at
+		 FROM workout_results
+		 WHERE user_id = ? AND logged_at >= ? AND logged_at < ?
+		 ORDER BY logged_at`,
+		userId.String(), start, end,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("querying workout results in range: %w", err)
 	}
 	defer rows.Close()
 	return r.scanRows(rows)
