@@ -443,10 +443,17 @@ func TestE2E_SessionCardsAreCollapsible(t *testing.T) {
 	assert.Contains(t, string(body), `data-card-key="warmup-`+sessionId+`"`)
 }
 
-// loggedMarks counts the "done" ticks on a sessions page. The mark is only ever
-// rendered for a day something was logged on, so its count is the assertion.
-func loggedMarks(page string) int {
-	return strings.Count(page, `aria-label="Logged"`)
+// trainedMarks counts the days on a sessions page carrying any tick — days the
+// user logged something on, plan or no plan. The mark is only ever rendered for
+// such a day, so its count is the assertion.
+func trainedMarks(page string) int {
+	return strings.Count(page, `aria-label="Logged`)
+}
+
+// planMarks counts the days carrying the second tick: what was logged that day
+// was on that day's own plan.
+func planMarks(page string) int {
+	return strings.Count(page, `aria-label="Logged, and on the plan"`)
 }
 
 func getPage(t *testing.T, client *http.Client, url string) string {
@@ -459,9 +466,10 @@ func getPage(t *testing.T, client *http.Client, url string) string {
 	return string(body)
 }
 
-// The week and month views mark a day whose plan was at least started. Nothing
-// records that a session was performed — it is a plan — so the mark is earned by
-// logging something the day prescribed, on that day.
+// The week and month views mark a day the user trained, and mark it twice when
+// what they logged was on that day's own plan. Nothing records that a session was
+// performed — it is a plan — so the second tick is earned by logging something
+// the day prescribed, on that day.
 func TestE2E_SessionViewsMarkLoggedDays(t *testing.T) {
 	app := NewTestApp(t)
 	client := newClient()
@@ -507,11 +515,12 @@ func TestE2E_SessionViewsMarkLoggedDays(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	// A planned day is not a done one.
-	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
-		"nothing is logged yet, so no day is marked")
-	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
-		"nothing is logged yet, so no day is marked")
+	// A planned day is not a trained one.
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Zero(t, trainedMarks(page), "nothing is logged yet, so no day is marked")
+		assert.Zero(t, planMarks(page), "nothing is logged yet, so no day is marked")
+	}
 
 	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
 		"score":      {"3:21"},
@@ -520,12 +529,120 @@ func TestE2E_SessionViewsMarkLoggedDays(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	// Exactly one: the score was logged today, and a repeated benchmark must not
-	// backdate itself onto every session that ever prescribed it.
-	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
-		"only the day the score was logged on is marked")
-	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
-		"only the day the score was logged on is marked")
+	// Exactly one day either way: the score was logged today, and a repeated
+	// benchmark must not backdate itself onto every session that ever prescribed
+	// it. Today earns both ticks — trained, and on today's plan.
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Equal(t, 1, trainedMarks(page), "only the day the score was logged on is marked")
+		assert.Equal(t, 1, planMarks(page), "today's plan prescribed what was logged today")
+	}
+}
+
+// The bug this fixes: logging yesterday's workout today left both days blank.
+// Today's session prescribed something else, and yesterday's had nothing logged
+// on it, so a day spent in the gym read as a rest day. Training is now its own
+// claim — one tick — and doing the plan is the second one.
+func TestE2E_SessionViewsMarkTrainingOffThePlan(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"offplan@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Off Plan"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	newWorkout := func(name string) string {
+		resp, err := client.PostForm(app.Server.URL+"/workouts", url.Values{
+			"name":        {name},
+			"type":        {"for_time"},
+			"description": {name + " as prescribed"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+		var id string
+		require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts WHERE name = ?", name).Scan(&id))
+		return id
+	}
+
+	fran, grace := newWorkout("Fran"), newWorkout("Grace")
+
+	today := time.Now().Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Yesterday prescribed Fran; today prescribes Grace.
+	for _, s := range []struct{ date, name, workout string }{
+		{yesterday, "Yesterday", fran},
+		{today, "Today", grace},
+	} {
+		resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+			"date":        {s.date},
+			"name":        {s.name},
+			"workout_ids": {s.workout},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	}
+
+	// Fran gets logged today — a day late, and not what today prescribed.
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+fran+"/results", url.Values{
+		"score":      {"3:21"},
+		"score_type": {"time"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Equal(t, 1, trainedMarks(page),
+			"today was trained even though the logged workout was off today's plan")
+		assert.Zero(t, planMarks(page),
+			"neither day's own plan was done: yesterday's Fran was logged today, and today prescribed Grace")
+	}
+}
+
+// A day with no session at all still counts as trained. Nothing was planned, so
+// there is no second tick to earn.
+func TestE2E_SessionViewsMarkTrainingWithNoPlan(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"noplan@example.com"},
+		"password":     {"password123"},
+		"display_name": {"No Plan"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name":        {"Cindy"},
+		"type":        {"amrap"},
+		"description": {"20 min AMRAP"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
+		"score":      {"18"},
+		"score_type": {"rounds_and_reps"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Equal(t, 1, trainedMarks(page), "an unplanned day you trained is still marked")
+		assert.Zero(t, planMarks(page), "there was no plan to do")
+	}
 }
 
 // Lifting steps never produce a workout result: sets are logged against the lift
@@ -576,7 +693,7 @@ func TestE2E_SessionViewsMarkLoggedLiftSets(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	assert.Zero(t, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
+	assert.Zero(t, trainedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
 		"the squat is only prescribed so far")
 
 	resp, err = client.PostForm(app.Server.URL+"/lifts/"+liftId+"/logs", url.Values{
@@ -587,8 +704,11 @@ func TestE2E_SessionViewsMarkLoggedLiftSets(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=week")),
-		"sets logged against the lift mark the day that prescribed it")
-	assert.Equal(t, 1, loggedMarks(getPage(t, client, app.Server.URL+"/sessions?view=calendar")),
-		"sets logged against the lift mark the day that prescribed it")
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Equal(t, 1, trainedMarks(page),
+			"sets logged against the lift mark the day")
+		assert.Equal(t, 1, planMarks(page),
+			"sets logged against the lift mark the plan that prescribed it")
+	}
 }

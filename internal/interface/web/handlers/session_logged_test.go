@@ -56,6 +56,7 @@ func TestLoggedIndex_Done(t *testing.T) {
 	backSquat := uuid.New()
 
 	idx := &loggedIndex{
+		days:     map[string]bool{monday: true},
 		workouts: map[string]map[uuid.UUID]bool{monday: {fran: true}},
 		lifts:    map[string]map[uuid.UUID]bool{monday: {backSquat: true}},
 	}
@@ -101,5 +102,60 @@ func TestLoggedIndex_Done(t *testing.T) {
 	}
 	if idx.anyDone(nil) {
 		t.Fatal("a day with no sessions is not done")
+	}
+}
+
+// Training and doing the plan are separate claims. Logging Saturday's workout on
+// Sunday used to leave both days blank — Saturday because nothing was logged on
+// it, Sunday because what was logged was not on Sunday's plan — so a day in the
+// gym showed as a rest day.
+func TestLoggedIndex_LoggedOn(t *testing.T) {
+	monday, tuesday := "2026-08-03", "2026-08-04"
+
+	idx := &loggedIndex{
+		days:     map[string]bool{monday: true},
+		workouts: map[string]map[uuid.UUID]bool{},
+		lifts:    map[string]map[uuid.UUID]bool{},
+	}
+
+	if !idx.loggedOn(monday) {
+		t.Fatal("a day with something logged on it counts as trained")
+	}
+	if idx.loggedOn(tuesday) {
+		t.Fatal("a day with nothing logged on it does not")
+	}
+
+	var nilIdx *loggedIndex
+	if nilIdx.loggedOn(monday) {
+		t.Fatal("no index means nothing logged")
+	}
+}
+
+// Whatever marks the plan must also mark the day, or a cell would claim the plan
+// was done without claiming anything was.
+func TestBuildLoggedIndex_PlanImpliesTrained(t *testing.T) {
+	monday := "2026-08-03"
+	fran, backSquat := uuid.New(), uuid.New()
+
+	idx := &loggedIndex{
+		days:     map[string]bool{},
+		workouts: map[string]map[uuid.UUID]bool{},
+		lifts:    map[string]map[uuid.UUID]bool{},
+	}
+
+	// Mirrors what buildLoggedIndex does per result and per lift log.
+	idx.days[monday] = true
+	mark(idx.workouts, monday, fran)
+	idx.days[monday] = true
+	mark(idx.lifts, monday, backSquat)
+
+	d, err := parseCivilDate(monday)
+	if err != nil {
+		t.Fatalf("parsing: %v", err)
+	}
+	s := &common.SessionResult{Date: d, Workouts: []*common.WorkoutResult{{Id: fran}}}
+
+	if !idx.done(s) || !idx.loggedOn(monday) {
+		t.Fatal("a logged result marks both the plan and the day")
 	}
 }
