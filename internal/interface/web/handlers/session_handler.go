@@ -273,11 +273,15 @@ type CalendarDay struct {
 	Date    time.Time
 	InMonth bool
 	IsToday bool
-	// Logged marks a day whose plan was at least started: something from one of
-	// its sessions was recorded on it. A session is only ever a plan, so this is
-	// the nearest thing to "done" the model has — see loggedIndex.
-	Logged   bool
-	Sessions []*common.SessionResult
+	// Logged marks a day the user trained: anything at all was recorded on it,
+	// whether or not the day had a plan or the plan matched.
+	Logged bool
+	// PlanLogged narrows that to a day whose own plan was at least started:
+	// something one of its sessions prescribes was recorded on it. A session is
+	// only ever a plan, so this is the nearest thing to "done" the model has —
+	// see loggedIndex. It implies Logged.
+	PlanLogged bool
+	Sessions   []*common.SessionResult
 }
 
 // CalendarMonth holds everything the template needs to render a month view.
@@ -313,11 +317,12 @@ func (h *SessionHandler) buildCalendar(userId uuid.UUID, monthStart, today time.
 			day := gridStart.AddDate(0, 0, w*7+d)
 			key := formatCivil(day)
 			weeks[w][d] = CalendarDay{
-				Date:     day,
-				InMonth:  day.Month() == monthStart.Month() && day.Year() == monthStart.Year(),
-				IsToday:  day.Equal(today),
-				Logged:   logged.anyDone(byDay[key]),
-				Sessions: byDay[key],
+				Date:       day,
+				InMonth:    day.Month() == monthStart.Month() && day.Year() == monthStart.Year(),
+				IsToday:    day.Equal(today),
+				Logged:     logged.loggedOn(key),
+				PlanLogged: logged.anyDone(byDay[key]),
+				Sessions:   byDay[key],
 			}
 		}
 	}
@@ -375,11 +380,12 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time,
 		day := weekStart.AddDate(0, 0, i)
 		key := formatCivil(day)
 		days[i] = CalendarDay{
-			Date:     day,
-			InMonth:  true,
-			IsToday:  day.Equal(today),
-			Logged:   logged.anyDone(byDay[key]),
-			Sessions: byDay[key],
+			Date:       day,
+			InMonth:    true,
+			IsToday:    day.Equal(today),
+			Logged:     logged.loggedOn(key),
+			PlanLogged: logged.anyDone(byDay[key]),
+			Sessions:   byDay[key],
 		}
 	}
 
@@ -405,21 +411,40 @@ func (h *SessionHandler) buildWeek(userId uuid.UUID, weekStart, today time.Time,
 	}, nil
 }
 
-// loggedIndex answers "was any of this day's plan actually done?".
+// loggedIndex answers two questions about a day, and the difference between
+// them is the whole point: "did you train?" and "did you do the plan?".
 //
-// Nothing records that a session was performed — a session is the plan, and
-// results are recorded against the individual lift or workout. So the question
-// is answered by coincidence in time: a day counts as done when something one of
-// its sessions prescribes was logged on that same day. Matching on the day as
-// well as the workout is what keeps a repeated benchmark from marking every
-// session it has ever appeared in.
+// The first is just presence — anything logged on the day, plan or not, counts.
+// A day you trained is a day you trained even if you never wrote a session for
+// it, or wrote one and did something else. That is `loggedOn`.
+//
+// The second is narrower, and nothing records it directly: a session is the
+// plan, and results are recorded against the individual lift or workout. So it
+// is answered by coincidence in time — a day's plan counts as started when
+// something one of its sessions prescribes was logged on that same day. Matching
+// on the day as well as the workout is what keeps a repeated benchmark from
+// marking every session it has ever appeared in. That is `done`.
+//
+// Note that both are keyed by the day the result was *logged on*, not the day
+// some session prescribed it: logging Saturday's workout on Sunday marks Sunday,
+// because Sunday is when you were in the gym.
 //
 // Lifting steps are held apart because sets are logged against the lift itself,
 // not against the workout that prescribed them, so those never produce a
 // workout_result to find.
 type loggedIndex struct {
+	days     map[string]bool
 	workouts map[string]map[uuid.UUID]bool
 	lifts    map[string]map[uuid.UUID]bool
+}
+
+// loggedOn reports whether the user recorded anything at all on the given civil
+// day, regardless of what — if anything — was planned for it.
+func (l *loggedIndex) loggedOn(day string) bool {
+	if l == nil {
+		return false
+	}
+	return l.days[day]
 }
 
 // done reports whether anything in the session was logged on the session's own
@@ -457,6 +482,7 @@ func (h *SessionHandler) buildLoggedIndex(userId uuid.UUID, start, end time.Time
 	from, to := startOfDayIn(start, loc), startOfDayIn(end, loc)
 
 	idx := &loggedIndex{
+		days:     map[string]bool{},
 		workouts: map[string]map[uuid.UUID]bool{},
 		lifts:    map[string]map[uuid.UUID]bool{},
 	}
@@ -470,7 +496,9 @@ func (h *SessionHandler) buildLoggedIndex(userId uuid.UUID, start, end time.Time
 		return nil, err
 	}
 	for _, r := range results.Results {
-		mark(idx.workouts, formatCivil(dayIn(r.LoggedAt, loc)), r.WorkoutId)
+		day := formatCivil(dayIn(r.LoggedAt, loc))
+		idx.days[day] = true
+		mark(idx.workouts, day, r.WorkoutId)
 	}
 
 	logs, err := h.liftService.GetLiftLogsInRange(&query.GetLiftLogsInRangeQuery{
@@ -482,7 +510,9 @@ func (h *SessionHandler) buildLoggedIndex(userId uuid.UUID, start, end time.Time
 		return nil, err
 	}
 	for _, l := range logs.Results {
-		mark(idx.lifts, formatCivil(dayIn(l.LoggedAt, loc)), l.LiftId)
+		day := formatCivil(dayIn(l.LoggedAt, loc))
+		idx.days[day] = true
+		mark(idx.lifts, day, l.LiftId)
 	}
 
 	return idx, nil

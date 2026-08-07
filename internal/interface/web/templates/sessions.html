@@ -82,16 +82,30 @@
 {{end}}
 
 {{/*
-  The mark on a day whose plan was at least started. Nothing records that a
-  session was performed — it is a plan — so what this actually says is that
-  something the day prescribed was logged on it. Absence is the other half of
-  the signal: an unlogged day carries no mark at all rather than an empty one,
-  which is what keeps a month of cells quiet enough for the ticks to read.
+  The mark on a day the user trained. One tick says something was logged on the
+  day; a second says what was logged was on that day's own plan — nothing records
+  that a session was performed, it is a plan, so the pair is the strongest claim
+  the model can make. The two overlap by a hair so they read as one double-tick
+  rather than two marks, which matters in a 40px month cell. Absence is the other
+  half of the signal: an untrained day carries no mark at all rather than an empty
+  one, which is what keeps a month of cells quiet enough for the ticks to read.
+
+  Takes a CalendarDay.
 */}}
 {{define "day_logged_mark"}}
-<span class="text-primary shrink-0 leading-none" role="img" aria-label="Logged" title="Logged">
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+{{if .Logged}}
+<span class="text-primary flex shrink-0 items-center leading-none"
+      role="img"
+      aria-label="{{if .PlanLogged}}Logged, and on the plan{{else}}Logged{{end}}"
+      title="{{if .PlanLogged}}Logged, and on the plan{{else}}Logged{{end}}">
+    {{template "check_icon"}}
+    {{if .PlanLogged}}<span class="-ml-1 flex">{{template "check_icon"}}</span>{{end}}
 </span>
+{{end}}
+{{end}}
+
+{{define "check_icon"}}
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
 {{end}}
 
 {{define "sessions_week"}}
@@ -111,7 +125,7 @@
             <div class="flex items-baseline justify-between gap-2">
                 <span class="eyebrow {{if .IsToday}}text-primary{{else}}text-muted-foreground{{end}}">{{.Date.Format "Mon"}}</span>
                 <span class="flex items-center gap-1">
-                    {{if .Logged}}{{template "day_logged_mark"}}{{end}}
+                    {{template "day_logged_mark" .}}
                     <span class="numeral">{{.Date.Day}}</span>
                 </span>
             </div>
@@ -159,7 +173,7 @@
                 {{if .IsToday}}border-primary bg-primary/5{{end}}">
                 <div class="flex items-center justify-between gap-1">
                     <span class="numeral {{if .IsToday}}text-primary{{end}}">{{.Date.Day}}</span>
-                    {{if .Logged}}{{template "day_logged_mark"}}{{end}}
+                    {{template "day_logged_mark" .}}
                 </div>
                 {{range .Sessions}}
                 <!-- justify-start, or Basecoat's centring truncates the name

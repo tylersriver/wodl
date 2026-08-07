@@ -8,11 +8,14 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
   required date and an ordered list of workouts. It records what is *scheduled*, not
   that it was performed, so there is no session-completion entity.
 - Results are recorded against the individual **Lift** (sets) and **Workout** (scores).
-- The week and month views still mark a day as done, and they infer it rather than read
-  it: `loggedIndex` (in `session_handler.go`) marks a day when something one of its
-  sessions prescribes was logged *on that same day*. Matching the day as well as the
-  workout is the point — a benchmark repeats, and matching on the workout alone would
-  tick every session that ever prescribed Fran. Lifting steps are looked up by their
+- The week and month views tick a day, and they infer it rather than read it. `loggedIndex`
+  (in `session_handler.go`) answers two separate questions, both keyed by the day a result
+  was *logged on*: `loggedOn` — did you train, i.e. was anything at all recorded that day —
+  and `done` — was what you recorded on that day's own plan. One tick for the first, a
+  second overlapping tick for the second. Keeping them apart is what fixes logging
+  Saturday's workout on Sunday, which used to leave both days blank. `done` matches the day
+  as well as the workout on purpose: a benchmark repeats, and matching on the workout alone
+  would tick every session that ever prescribed Fran. Lifting steps are looked up by their
   `LiftId` against the lift logs, since sets are never logged as a workout result.
 - The landing page (`/`) shows the session dated today; `/results` is the combined,
   filterable list of lifts and workouts.
