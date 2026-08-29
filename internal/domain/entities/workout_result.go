@@ -59,8 +59,13 @@ func (wr *WorkoutResult) validate() error {
 	return nil
 }
 
-func NewWorkoutResult(userId, workoutId uuid.UUID, score string, scoreType ScoreType, rx bool, notes string) *WorkoutResult {
-	now := time.Now()
+// NewWorkoutResult records a score against a workout.
+//
+// loggedAt is the moment the work was done, which is not always the moment it
+// is typed in — a score can be written up the morning after. CreatedAt is the
+// second of those and stays the clock's, so only LoggedAt is the caller's to
+// choose.
+func NewWorkoutResult(userId, workoutId uuid.UUID, score string, scoreType ScoreType, rx bool, notes string, loggedAt time.Time) *WorkoutResult {
 	return &WorkoutResult{
 		Id:        uuid.Must(uuid.NewV7()),
 		UserId:    userId,
@@ -69,9 +74,19 @@ func NewWorkoutResult(userId, workoutId uuid.UUID, score string, scoreType Score
 		ScoreType: scoreType,
 		Rx:        rx,
 		Notes:     notes,
-		LoggedAt:  now,
-		CreatedAt: now,
+		LoggedAt:  loggedAt,
+		CreatedAt: time.Now(),
 	}
+}
+
+// Update revises a score already recorded. Everything the user typed is theirs
+// to correct, the day included; Id, WorkoutId and CreatedAt are not.
+func (wr *WorkoutResult) Update(score string, scoreType ScoreType, rx bool, notes string, loggedAt time.Time) {
+	wr.Score = score
+	wr.ScoreType = scoreType
+	wr.Rx = rx
+	wr.Notes = notes
+	wr.LoggedAt = loggedAt
 }
 
 type ValidatedWorkoutResult struct {

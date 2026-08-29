@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -165,6 +166,7 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 		ScoreType: r.FormValue("score_type"),
 		Rx:        r.FormValue("rx") == "on",
 		Notes:     r.FormValue("notes"),
+		LoggedAt:  loggedAtFromForm(r),
 	}
 
 	_, err = h.workoutService.CreateWorkoutResult(cmd)
@@ -174,6 +176,58 @@ func (h *WorkoutHandler) CreateResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
+}
+
+// UpdateResult revises a score already logged. A score gets typed in wrong, or
+// gets typed in the next morning against today rather than the day it was
+// earned — and since the week grid ticks the day a result was logged on, the
+// day is as much a correction as the score is.
+func (h *WorkoutHandler) UpdateResult(w http.ResponseWriter, r *http.Request) {
+	userId := middleware.GetUserID(r)
+	workoutId, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	resultId, err := uuid.Parse(chi.URLParam(r, "resultId"))
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	r.ParseForm()
+	cmd := &command.UpdateWorkoutResultCommand{
+		Id:        resultId,
+		UserId:    userId,
+		Score:     r.FormValue("score"),
+		ScoreType: r.FormValue("score_type"),
+		Rx:        r.FormValue("rx") == "on",
+		Notes:     r.FormValue("notes"),
+		LoggedAt:  loggedAtFromForm(r),
+	}
+
+	if err := h.workoutService.UpdateWorkoutResult(cmd); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/workouts/%s", workoutId), http.StatusSeeOther)
+}
+
+// loggedAtFromForm reads the day the user picked for a result and resolves it
+// to an instant in their zone. A missing or unreadable value leaves the zero
+// time, which the service reads as "whatever it already was" — for a new score,
+// now.
+func loggedAtFromForm(r *http.Request) time.Time {
+	v := r.FormValue("logged_on")
+	if v == "" {
+		return time.Time{}
+	}
+	day, err := parseCivilDate(v)
+	if err != nil {
+		return time.Time{}
+	}
+	return instantOnDay(day, requestLocation(r))
 }
 
 // deriveLiftingName auto-generates the title for a lifting-type workout so the

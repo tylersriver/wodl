@@ -44,28 +44,8 @@
     <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
         <h2 class="eyebrow text-muted-foreground">Log a result</h2>
         <form method="POST" action="/workouts/{{.Workout.Id}}/results" class="flex flex-col gap-4">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="field">
-                    <label for="result-score">Score</label>
-                    <input type="text" id="result-score" name="score" placeholder="e.g. 150 reps, 8:30, 5+12" required />
-                </div>
-                <div class="field">
-                    <label for="result-score-type">Score type</label>
-                    <select id="result-score-type" name="score_type">
-                        {{range .ScoreTypes}}
-                        <option value="{{.}}">{{label .}}</option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-            <label class="hover:bg-accent/50 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3">
-                <input type="checkbox" name="rx" class="input" />
-                <span class="text-sm">Did it exactly as written (Rx)</span>
-            </label>
-            <div class="field">
-                <label for="result-notes">Notes</label>
-                <input type="text" id="result-notes" name="notes" />
-            </div>
+            {{template "result_fields" (dict "Prefix" "result" "ScoreTypes" .ScoreTypes "Day" .Today
+                "Score" "" "ScoreType" "" "Rx" false "Notes" "")}}
             <button type="submit" class="btn w-full sm:w-fit" data-size="lg">Log result</button>
         </form>
     </div>
@@ -74,14 +54,18 @@
     <div class="bg-card flex flex-col gap-4 rounded-2xl border p-5">
         <h2 class="eyebrow text-muted-foreground">History</h2>
 
-        <!-- Cards on phones, table from sm up. -->
+        <!-- Cards on phones, table from sm up. Either way every row opens its own edit sheet. -->
         <ul class="flex flex-col gap-3 sm:hidden">
             {{range .Results}}
             <li class="bg-muted/40 flex flex-col gap-2 rounded-xl p-3">
-                <div class="flex flex-wrap items-baseline gap-2">
-                    <span class="numeral text-xl">{{.Score}}</span>
-                    <span class="badge" data-variant="outline">{{label .ScoreType}}</span>
-                    {{if .Rx}}<span class="badge" data-variant="primary">Rx</span>{{end}}
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex flex-wrap items-baseline gap-2">
+                        <span class="numeral text-xl">{{.Score}}</span>
+                        <span class="badge" data-variant="outline">{{label .ScoreType}}</span>
+                        {{if .Rx}}<span class="badge" data-variant="primary">Rx</span>{{end}}
+                    </div>
+                    <button type="button" class="btn shrink-0" data-variant="ghost" data-size="sm"
+                        onclick="openDialog('edit-result-{{.Id}}')">Edit</button>
                 </div>
                 <span class="text-muted-foreground text-sm">{{when .LoggedAt $.Loc "Jan 2, 2006"}}</span>
                 {{if .Notes}}<p class="text-muted-foreground text-sm">{{.Notes}}</p>{{end}}
@@ -98,6 +82,7 @@
                         <th>Type</th>
                         <th>Rx</th>
                         <th>Notes</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -108,6 +93,10 @@
                         <td>{{label .ScoreType}}</td>
                         <td>{{if .Rx}}<span class="badge" data-variant="primary">Rx</span>{{end}}</td>
                         <td>{{.Notes}}</td>
+                        <td>
+                            <button type="button" class="btn" data-variant="ghost" data-size="sm"
+                                onclick="openDialog('edit-result-{{.Id}}')">Edit</button>
+                        </td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -116,6 +105,33 @@
     </div>
     {{end}}
 </div>
+
+<!--
+  One edit sheet per logged score. They sit outside the history card because a
+  <dialog> inside a table cell is invalid markup, and a modal doesn't want to
+  inherit the card's layout either.
+-->
+{{range .Results}}
+<dialog id="edit-result-{{.Id}}" class="dialog sheet" aria-labelledby="edit-result-title-{{.Id}}"
+        onclick="if (event.target === this) this.close()">
+    <form method="POST" action="/workouts/{{$.Workout.Id}}/results/{{.Id}}" class="bg-card w-full max-w-md gap-0 rounded-xl border shadow-lg">
+        <input type="hidden" name="_method" value="PUT" />
+        <header class="gap-1.5 p-6 pb-4">
+            <h2 id="edit-result-title-{{.Id}}" class="text-lg font-semibold">Edit result</h2>
+            <p class="text-muted-foreground text-sm">Logged {{when .LoggedAt $.Loc "Jan 2, 2006"}}.</p>
+        </header>
+        <section class="flex flex-col gap-4 overflow-y-auto px-6">
+            {{template "result_fields" (dict "Prefix" (printf "edit-result-%s" .Id) "ScoreTypes" $.ScoreTypes
+                "Day" (when .LoggedAt $.Loc "2006-01-02")
+                "Score" .Score "ScoreType" .ScoreType "Rx" .Rx "Notes" .Notes)}}
+        </section>
+        <footer class="gap-2 p-6">
+            <button type="button" class="btn w-full sm:w-auto" data-variant="outline" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="submit" class="btn w-full sm:w-auto">Save</button>
+        </footer>
+    </form>
+</dialog>
+{{end}}
 
 <dialog id="edit-workout-modal" class="dialog sheet" aria-labelledby="edit-workout-title"
         onclick="if (event.target === this) this.close()">

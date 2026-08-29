@@ -1,6 +1,8 @@
 package command
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/tyler/wodl/internal/application/common"
 )
@@ -40,6 +42,20 @@ type CreateWorkoutResultCommand struct {
 	ScoreType string
 	Rx        bool
 	Notes     string
+	// LoggedAt is when the work was done, which is not always when it was
+	// written up. The interface layer turns the day the user picked into an
+	// instant, since only it knows the reader's zone.
+	LoggedAt time.Time
+}
+
+type UpdateWorkoutResultCommand struct {
+	Id        uuid.UUID
+	UserId    uuid.UUID
+	Score     string
+	ScoreType string
+	Rx        bool
+	Notes     string
+	LoggedAt  time.Time
 }
 
 type DeleteWorkoutResultCommand struct {

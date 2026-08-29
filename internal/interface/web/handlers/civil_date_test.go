@@ -153,3 +153,69 @@ func TestParseMonthParam(t *testing.T) {
 		t.Fatal("want an error for an unparseable month")
 	}
 }
+
+// The day a user picks has to come back out as the day they picked, read in
+// their own zone. March 14 also lands on a DST change in the American zones,
+// where a day is 23 hours long.
+func TestInstantOnDay_RoundTripsThePickedDay(t *testing.T) {
+	zones := []string{"America/Denver", "America/Santiago", "Asia/Tokyo", "Pacific/Auckland", "UTC"}
+	day := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+
+	for _, name := range zones {
+		t.Run(name, func(t *testing.T) {
+			loc, err := time.LoadLocation(name)
+			if err != nil {
+				t.Fatalf("loading zone: %v", err)
+			}
+			if got := formatCivil(dayIn(instantOnDay(day, loc), loc)); got != "2026-03-14" {
+				t.Fatalf("got %s, want 2026-03-14", got)
+			}
+		})
+	}
+}
+
+// The tz cookie is best-effort: a later request can arrive without one and fall
+// back to the server's zone, which is UTC. A score must not slide onto the day
+// before when that happens, which is what anchoring at midday rather than
+// midnight buys. Nothing can cover every zone — the offsets span 26 hours — so
+// this is the UTC-11..UTC+12 band, everyone but the Pacific's far east.
+func TestInstantOnDay_SurvivesAZonelessRead(t *testing.T) {
+	zones := []string{"Pacific/Pago_Pago", "America/Denver", "Europe/Berlin", "Asia/Tokyo", "UTC"}
+	day := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+
+	for _, name := range zones {
+		t.Run(name, func(t *testing.T) {
+			loc, err := time.LoadLocation(name)
+			if err != nil {
+				t.Fatalf("loading zone: %v", err)
+			}
+			if got := formatCivil(dayIn(instantOnDay(day, loc), time.UTC)); got != "2026-03-14" {
+				t.Fatalf("read back in UTC: got %s, want 2026-03-14", got)
+			}
+		})
+	}
+}
+
+// Logging as you finish is the ordinary case, and it should still record the
+// moment it happened rather than a flat midday — history reads in the order the
+// work was done.
+func TestInstantOnDay_KeepsTheClockForToday(t *testing.T) {
+	denver, err := time.LoadLocation("America/Denver")
+	if err != nil {
+		t.Fatalf("loading zone: %v", err)
+	}
+
+	at := instantOnDay(todayIn(denver), denver)
+	if d := time.Since(at); d < 0 || d > time.Minute {
+		t.Fatalf("today logged %v ago, want roughly now", d)
+	}
+}
+
+// A nil zone is what a request without a usable tz cookie hands down; it must
+// resolve rather than panic.
+func TestInstantOnDay_ToleratesNoZone(t *testing.T) {
+	day := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+	if got := formatCivil(dayIn(instantOnDay(day, nil), time.Local)); got != "2026-03-14" {
+		t.Fatalf("got %s, want 2026-03-14", got)
+	}
+}

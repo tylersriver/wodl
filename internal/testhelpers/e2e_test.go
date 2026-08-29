@@ -712,3 +712,198 @@ func TestE2E_SessionViewsMarkLoggedLiftSets(t *testing.T) {
 			"sets logged against the lift mark the plan that prescribed it")
 	}
 }
+
+// Writing up yesterday's workout this morning should credit yesterday. The day
+// is the user's to pick, and it is what the week and month grids tick.
+func TestE2E_LogResultOnAChosenDay(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"backdate@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Backdater"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name":        {"Fran"},
+		"type":        {"for_time"},
+		"description": {"21-15-9 thrusters and pull-ups"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+
+	// Yesterday's plan prescribed it; the score is only being typed in now.
+	resp, err = client.PostForm(app.Server.URL+"/sessions", url.Values{
+		"date":        {yesterday},
+		"name":        {"Yesterday"},
+		"workout_ids": {workoutId},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
+		"score":      {"3:21"},
+		"score_type": {"time"},
+		"logged_on":  {yesterday},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var loggedAt time.Time
+	require.NoError(t, app.DB.QueryRow("SELECT logged_at FROM workout_results").Scan(&loggedAt))
+	assert.Equal(t, yesterday, loggedAt.Local().Format("2006-01-02"),
+		"the score belongs to the day it was done, not the day it was typed in")
+
+	for _, view := range []string{"week", "calendar"} {
+		page := getPage(t, client, app.Server.URL+"/sessions?view="+view)
+		assert.Equal(t, 1, trainedMarks(page), "yesterday is the day that was trained")
+		assert.Equal(t, 1, planMarks(page), "yesterday's own plan is what got done")
+	}
+}
+
+// A logged score is editable — including its day, which is the correction most
+// worth making, since a score typed in against the wrong day leaves the day it
+// belongs to reading as a rest day.
+func TestE2E_EditLoggedResult(t *testing.T) {
+	app := NewTestApp(t)
+	client := newClient()
+
+	resp, err := client.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"editor@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Editor"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	client.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name":        {"Cindy"},
+		"type":        {"amrap"},
+		"description": {"20 min AMRAP"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
+		"score":      {"18"},
+		"score_type": {"rounds_and_reps"},
+		"notes":      {"felt slow"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var resultId string
+	var createdAt time.Time
+	require.NoError(t, app.DB.QueryRow("SELECT id, created_at FROM workout_results").Scan(&resultId, &createdAt))
+
+	// The detail page offers the edit, so the id in the markup is what a real
+	// client would post back to.
+	page := getPage(t, client, app.Server.URL+"/workouts/"+workoutId)
+	assert.Contains(t, page, "edit-result-"+resultId, "every logged score gets an edit sheet")
+
+	twoDaysAgo := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
+	resp, err = client.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results/"+resultId, url.Values{
+		"_method":    {"PUT"},
+		"score":      {"20+3"},
+		"score_type": {"rounds_and_reps"},
+		"rx":         {"on"},
+		"notes":      {"miscounted"},
+		"logged_on":  {twoDaysAgo},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var score, notes string
+	var rx bool
+	var loggedAt, createdAfter time.Time
+	require.NoError(t, app.DB.QueryRow(
+		"SELECT score, notes, rx, logged_at, created_at FROM workout_results WHERE id = ?", resultId,
+	).Scan(&score, &notes, &rx, &loggedAt, &createdAfter))
+
+	assert.Equal(t, "20+3", score)
+	assert.Equal(t, "miscounted", notes)
+	assert.True(t, rx)
+	assert.Equal(t, twoDaysAgo, loggedAt.Local().Format("2006-01-02"), "the day moved with the edit")
+	assert.WithinDuration(t, createdAt, createdAfter, time.Second,
+		"created_at is when the row was written and an edit does not change it")
+
+	var count int
+	require.NoError(t, app.DB.QueryRow("SELECT COUNT(*) FROM workout_results").Scan(&count))
+	assert.Equal(t, 1, count, "editing revises the score in place rather than logging another")
+
+	// html/template escapes the "+" of a rounds-and-reps score.
+	page = getPage(t, client, app.Server.URL+"/workouts/"+workoutId)
+	assert.Contains(t, page, "20&#43;3")
+	assert.Contains(t, page, "miscounted")
+	assert.NotContains(t, page, "felt slow")
+}
+
+// Someone else's result is not yours to edit.
+func TestE2E_EditResultRejectsAnotherUser(t *testing.T) {
+	app := NewTestApp(t)
+
+	owner := newClient()
+	resp, err := owner.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"owner@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Owner"},
+	})
+	require.NoError(t, err)
+	u, _ := url.Parse(app.Server.URL)
+	owner.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = owner.PostForm(app.Server.URL+"/workouts", url.Values{
+		"name": {"Helen"},
+		"type": {"for_time"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var workoutId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workouts LIMIT 1").Scan(&workoutId))
+
+	resp, err = owner.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results", url.Values{
+		"score":      {"9:12"},
+		"score_type": {"time"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	var resultId string
+	require.NoError(t, app.DB.QueryRow("SELECT id FROM workout_results").Scan(&resultId))
+
+	intruder := newClient()
+	resp, err = intruder.PostForm(app.Server.URL+"/register", url.Values{
+		"email":        {"intruder@example.com"},
+		"password":     {"password123"},
+		"display_name": {"Intruder"},
+	})
+	require.NoError(t, err)
+	intruder.Jar.SetCookies(u, resp.Cookies())
+
+	resp, err = intruder.PostForm(app.Server.URL+"/workouts/"+workoutId+"/results/"+resultId, url.Values{
+		"_method":    {"PUT"},
+		"score":      {"0:01"},
+		"score_type": {"time"},
+	})
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+	var score string
+	require.NoError(t, app.DB.QueryRow("SELECT score FROM workout_results WHERE id = ?", resultId).Scan(&score))
+	assert.Equal(t, "9:12", score, "the owner's score is untouched")
+}

@@ -156,6 +156,7 @@ func main() {
 		r.Put("/workouts/{id}", workoutHandler.Update)
 		r.Delete("/workouts/{id}", workoutHandler.Delete)
 		r.Post("/workouts/{id}/results", workoutHandler.CreateResult)
+		r.Put("/workouts/{id}/results/{resultId}", workoutHandler.UpdateResult)
 
 		r.Get("/sessions", sessionHandler.List)
 		r.Post("/sessions", sessionHandler.Create)

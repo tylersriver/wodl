@@ -1,0 +1,46 @@
+{{define "result_fields"}}
+<!--
+  The fields of a workout score, shared by the "Log a result" card and the edit
+  dialog behind every history row. One definition because the two must agree:
+  a field the edit form didn't have would silently blank itself on save.
+
+  Takes a dict of Prefix (unique per form, since ids have to be), ScoreTypes,
+  and the current Day / Score / ScoreType / Rx / Notes — empty for a new score.
+-->
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="field">
+        <label for="{{.Prefix}}-score">Score</label>
+        <input type="text" id="{{.Prefix}}-score" name="score" value="{{.Score}}"
+            placeholder="e.g. 150 reps, 8:30, 5+12" required />
+    </div>
+    <div class="field">
+        <label for="{{.Prefix}}-score-type">Score type</label>
+        <select id="{{.Prefix}}-score-type" name="score_type">
+            {{$current := .ScoreType}}
+            {{range .ScoreTypes}}
+            <option value="{{.}}" {{if eq (printf "%s" .) $current}}selected{{end}}>{{label .}}</option>
+            {{end}}
+        </select>
+    </div>
+</div>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <!--
+      The day you did it, not the day you typed it in. It defaults to today, so
+      logging as you finish is unchanged; writing up yesterday's workout the
+      next morning is what this is for, and it's the day the week and month
+      grids tick.
+    -->
+    <div class="field">
+        <label for="{{.Prefix}}-day">Day</label>
+        <input type="date" id="{{.Prefix}}-day" name="logged_on" value="{{.Day}}" />
+    </div>
+    <div class="field">
+        <label for="{{.Prefix}}-notes">Notes</label>
+        <input type="text" id="{{.Prefix}}-notes" name="notes" value="{{.Notes}}" />
+    </div>
+</div>
+<label class="hover:bg-accent/50 flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3">
+    <input type="checkbox" name="rx" class="input" {{if .Rx}}checked{{end}} />
+    <span class="text-sm">Did it exactly as written (Rx)</span>
+</label>
+{{end}}
