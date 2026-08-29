@@ -17,6 +17,14 @@ Workout logging web app. Tracks lifts (with 1RM calculator + percentage tables) 
   as well as the workout on purpose: a benchmark repeats, and matching on the workout alone
   would tick every session that ever prescribed Fran. Lifting steps are looked up by their
   `LiftId` against the lift logs, since sets are never logged as a workout result.
+- The day a result belongs to is the day it was *done*, and the user picks it. Both the
+  "Log a result" form and the per-row edit sheet on `/workouts/{id}` carry a `logged_on`
+  day; `instantOnDay` (`handlers/civil_date.go`) resolves it against the reader's zone —
+  today keeps the real clock time so history stays in the order it happened, any other day
+  is anchored at *midday* so it survives being read back without a `tz` cookie (midnight in
+  an eastern zone is the previous afternoon in UTC). This is what `loggedIndex` ticks, so
+  correcting a result's day moves the mark with it. Lift logs still stamp the moment they
+  are written
 - The landing page (`/`) shows the session dated today; `/results` is the combined,
   filterable list of lifts and workouts.
 - `/` takes `?date=YYYY-MM-DD` to show any day. The arrows, the swipe gesture and the

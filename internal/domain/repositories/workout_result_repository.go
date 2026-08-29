@@ -9,6 +9,7 @@ import (
 
 type WorkoutResultRepository interface {
 	Create(r *entities.ValidatedWorkoutResult) (*entities.WorkoutResult, error)
+	Update(r *entities.ValidatedWorkoutResult) (*entities.WorkoutResult, error)
 	FindById(id uuid.UUID) (*entities.WorkoutResult, error)
 	FindByWorkoutId(workoutId uuid.UUID) ([]*entities.WorkoutResult, error)
 	FindByUserId(userId uuid.UUID, limit int) ([]*entities.WorkoutResult, error)

@@ -31,6 +31,22 @@ func (r *WorkoutResultRepository) Create(wr *entities.ValidatedWorkoutResult) (*
 	return &result, nil
 }
 
+// Update rewrites a recorded score in place. created_at is left out of the SET
+// list on purpose: it is when the row was written, and correcting a score does
+// not change that — logged_at is the day the user gets to move.
+func (r *WorkoutResultRepository) Update(wr *entities.ValidatedWorkoutResult) (*entities.WorkoutResult, error) {
+	_, err := r.db.Exec(
+		`UPDATE workout_results SET score = ?, score_type = ?, rx = ?, notes = ?, logged_at = ?
+		 WHERE id = ?`,
+		wr.Score, string(wr.ScoreType), wr.Rx, wr.Notes, wr.LoggedAt, wr.Id.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("updating workout result: %w", err)
+	}
+	result := wr.WorkoutResult
+	return &result, nil
+}
+
 func (r *WorkoutResultRepository) FindById(id uuid.UUID) (*entities.WorkoutResult, error) {
 	row := r.db.QueryRow(
 		`SELECT id, user_id, workout_id, score, score_type, rx, notes, logged_at, created_at

@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/tyler/wodl/internal/application/command"
 	"github.com/tyler/wodl/internal/application/mapper"
@@ -91,8 +92,12 @@ func (s *WorkoutService) CreateWorkoutResult(cmd *command.CreateWorkoutResultCom
 		return nil, errors.New("unauthorized")
 	}
 
+	loggedAt := cmd.LoggedAt
+	if loggedAt.IsZero() {
+		loggedAt = time.Now()
+	}
 	result := entities.NewWorkoutResult(cmd.UserId, cmd.WorkoutId, cmd.Score,
-		entities.ScoreType(cmd.ScoreType), cmd.Rx, cmd.Notes)
+		entities.ScoreType(cmd.ScoreType), cmd.Rx, cmd.Notes, loggedAt)
 	validated, err := entities.NewValidatedWorkoutResult(result)
 	if err != nil {
 		return nil, err
@@ -104,6 +109,36 @@ func (s *WorkoutService) CreateWorkoutResult(cmd *command.CreateWorkoutResultCom
 	}
 
 	return &command.CreateWorkoutResultCommandResult{Result: mapper.WorkoutResultToResult(created)}, nil
+}
+
+// UpdateWorkoutResult revises a score already recorded, the day it was recorded
+// for included — a score typed in against the wrong day is the ordinary way
+// this goes wrong, and it is what decides which day the week grid ticks.
+func (s *WorkoutService) UpdateWorkoutResult(cmd *command.UpdateWorkoutResultCommand) error {
+	result, err := s.workoutResultRepo.FindById(cmd.Id)
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return errors.New("workout result not found")
+	}
+	if result.UserId != cmd.UserId {
+		return errors.New("unauthorized")
+	}
+
+	loggedAt := cmd.LoggedAt
+	if loggedAt.IsZero() {
+		loggedAt = result.LoggedAt
+	}
+	result.Update(cmd.Score, entities.ScoreType(cmd.ScoreType), cmd.Rx, cmd.Notes, loggedAt)
+
+	validated, err := entities.NewValidatedWorkoutResult(result)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.workoutResultRepo.Update(validated)
+	return err
 }
 
 func (s *WorkoutService) DeleteWorkoutResult(cmd *command.DeleteWorkoutResultCommand) error {

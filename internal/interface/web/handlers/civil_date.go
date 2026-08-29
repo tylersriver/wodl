@@ -103,3 +103,32 @@ func parseCivilDate(v string) (time.Time, error) {
 func formatCivil(t time.Time) string {
 	return t.UTC().Format(sessionDateLayout)
 }
+
+// instantOnDay is the moment to stamp on a result the user says happened on a
+// given day.
+//
+// A result's LoggedAt is an instant, but the day the user picks in the form is
+// a civil date, and the two only meet through the reader's zone. Today keeps
+// the real clock time, so the ordinary case — log it as you finish — still
+// records when it happened and history stays in the order it was done.
+//
+// Any other day is anchored at midday rather than midnight. dayIn reduces the
+// instant back to a day in whatever zone the reader turns out to be in, and
+// midday is the time of day that best survives being read from a different one
+// — the fall back to the server's own zone when the tz cookie goes missing,
+// most of all. Midnight in Tokyo is the previous afternoon in UTC, so a score
+// stamped at midnight and read back without the cookie would tick Friday for
+// Saturday's work. No instant survives every zone (the offsets span 26 hours);
+// midday covers UTC-11 through UTC+12, which is everywhere but the Pacific's
+// far east in its summer, and there the day is still right for the reader whose
+// cookie did arrive.
+func instantOnDay(day time.Time, loc *time.Location) time.Time {
+	if loc == nil {
+		loc = time.Local
+	}
+	d := civilDate(day)
+	if d.Equal(todayIn(loc)) {
+		return time.Now()
+	}
+	return time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, loc)
+}
